@@ -2,6 +2,10 @@
 #![feature(asm)]
 #![feature(naked_functions)]
 
+mod vga_buffer;
+use vga_buffer::{ScreenWriter, Color};
+use core::fmt::Write;
+
 use core::panic::PanicInfo;
 extern "C" {
     static _stack_top: u32;
@@ -225,13 +229,11 @@ pub extern "C" fn ua64_mode_start() -> ! {
             mov gs, ax
         " :::: "intel");
     }
-    let vga_buffer = 0xb8000 as *mut u8;
-    let hello: &[u8] = b"Hello world!";
-    for (i, &byte) in hello.iter().enumerate() {
-        unsafe {
-            *vga_buffer.offset(i as isize * 2) = byte;
-            *vga_buffer.offset(i as isize * 2 + 1) = 0x0b;
-        }
-    }
+    let mut writer = ScreenWriter::new();
+    writer.clear();
+    writer.set_fg(Color::Red);
+    writeln!(writer, "IT'S ALIVE!!!").unwrap();
+    writer.set_fg(Color::LightGreen);
+    writeln!(writer, "Hello world!").unwrap();
     loop {}
 }

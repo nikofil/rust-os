@@ -40,5 +40,7 @@ target/arch/$(arch)/%.o: boot/$(arch)/%.asm
 	@nasm -felf64 $< -o $@
 
 # compile rust OS
-$(rust_os): src/lib.rs
+$(rust_os): FORCE
 	@cargo xbuild
+
+FORCE: ;
