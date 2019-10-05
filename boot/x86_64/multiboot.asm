@@ -1,5 +1,4 @@
-extern _start
-global _setup_stack
+global _stack_top
 
 section .multiboot_header
 header_start:
@@ -13,13 +12,7 @@ header_start:
     dd 8 ; size
 header_end:
 
-section .setup_stack
-bits 32
-_setup_stack:
-    mov esp, stack_top
-    jmp _start
-
 section .bss
-stack_bottom:
+_stack_bottom:
     resb 128
-stack_top:
+_stack_top:

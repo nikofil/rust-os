@@ -6,7 +6,7 @@ linker_script := boot/$(arch)/linker.ld
 grub_cfg := boot/$(arch)/grub.cfg
 assembly_source_files := $(wildcard boot/$(arch)/*.asm)
 assembly_object_files := $(patsubst boot/$(arch)/%.asm, target/arch/$(arch)/%.o, $(assembly_source_files))
-rust_os := target/x86_64-rust_os/debug/rust-os
+rust_os := target/x86_64-rust_os/debug/librust_os.a
 
 .PHONY: all clean run iso
 
@@ -37,5 +37,5 @@ target/arch/$(arch)/%.o: boot/$(arch)/%.asm
 	@nasm -felf64 $< -o $@
 
 # compile rust OS
-$(rust_os): src/main.rs
+$(rust_os): src/lib.rs
 	@cargo xbuild

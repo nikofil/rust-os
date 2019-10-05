@@ -1,4 +1,4 @@
-ENTRY(_setup_stack)
+ENTRY(_start)
 
 SECTIONS {
     . = 1M;

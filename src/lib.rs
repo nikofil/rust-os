@@ -1,9 +1,11 @@
 #![no_std]
-#![no_main]
 #![feature(asm)]
 #![feature(naked_functions)]
 
 use core::panic::PanicInfo;
+extern "C" {
+    static _stack_top: u32;
+}
 
 /// This function is called on panic.
 #[panic_handler]
@@ -116,6 +118,11 @@ pub extern "C" fn _boot_error() -> ! {
 #[naked]
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
+    unsafe {
+        asm!("
+        lea esp, _stack_top
+        " :::: "intel");
+    }
     _multiboot_check();
     _cpuid_check();
     _long_mode_check();
@@ -123,7 +130,7 @@ pub extern "C" fn _start() -> ! {
         asm!("\
         mov dword ptr [0xb8000], 0x2f402f41
         hlt
-        " : : : : "intel");
+        " :::: "intel");
     }
     let vga_buffer = 0xb8000 as *mut u8;
     let hello: &[u8] = b"Hello world!";
