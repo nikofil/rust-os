@@ -3,10 +3,12 @@
 #![feature(naked_functions)]
 
 mod vga_buffer;
-use vga_buffer::{ScreenWriter, Color};
-use core::fmt::Write;
+use vga_buffer::cls;
 
 use core::panic::PanicInfo;
+use crate::vga_buffer::set_color;
+use crate::vga_buffer::Color;
+
 extern "C" {
     static _stack_top: u32;
     static _ua64_mode_entry: u64;
@@ -15,7 +17,8 @@ extern "C" {
 
 /// This function is called on panic.
 #[panic_handler]
-fn panic(_info: &PanicInfo) -> ! {
+fn panic(info: &PanicInfo) -> ! {
+    println!("{}", info);
     loop {}
 }
 
@@ -229,11 +232,10 @@ pub extern "C" fn ua64_mode_start() -> ! {
             mov gs, ax
         " :::: "intel");
     }
-    let mut writer = ScreenWriter::new();
-    writer.clear();
-    writer.set_fg(Color::Red);
-    writeln!(writer, "IT'S ALIVE!!!").unwrap();
-    writer.set_fg(Color::LightGreen);
-    writeln!(writer, "Hello world!").unwrap();
+    cls();
+    set_color(Color::Red, Color::Black, false);
+    println!("IT'S ALIVE!!!");
+    set_color(Color::LightGreen, Color::Black, false);
+    println!("Hello world!");
     loop {}
 }

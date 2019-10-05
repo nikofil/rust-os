@@ -1,4 +1,38 @@
 use core::fmt;
+use lazy_static::lazy_static;
+use spin::Mutex;
+
+lazy_static! {
+    pub static ref WRITER: Mutex<ScreenWriter> = Mutex::new(ScreenWriter::new());
+}
+
+#[macro_export]
+macro_rules! print {
+    ($($arg:tt)*) => ($crate::vga_buffer::_print(format_args!($($arg)*)));
+}
+
+#[macro_export]
+macro_rules! println {
+    () => ($crate::print!("\n"));
+    ($($arg:tt)*) => ($crate::print!("{}\n", format_args!($($arg)*)));
+}
+
+pub fn cls() {
+    WRITER.lock().clear();
+}
+
+#[allow(dead_code)]
+pub fn set_color(fg: Color, bg: Color, blink: bool) {
+    let mut writer = WRITER.lock();
+    writer.set_fg(fg);
+    writer.set_bg(bg);
+    writer.set_blink(blink);
+}
+
+pub fn  _print(args: fmt::Arguments) {
+    use core::fmt::Write;
+    WRITER.lock().write_fmt(args).unwrap();
+}
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
@@ -48,7 +82,7 @@ pub struct ScreenWriter {
 
 #[allow(dead_code)]
 impl ScreenWriter {
-    pub fn new() -> ScreenWriter {
+     pub(crate) fn new() -> ScreenWriter {
         ScreenWriter {
             col: 0,
             row: BUFFER_HEIGHT-1,
