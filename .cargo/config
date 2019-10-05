@@ -1,0 +1,5 @@
+[build]
+target = "x86_64-rust_os.json"
+
+[target.'cfg(target_os = "none")']
+runner = "bootimage runner"
