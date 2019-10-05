@@ -6,7 +6,7 @@ linker_script := boot/$(arch)/linker.ld
 grub_cfg := boot/$(arch)/grub.cfg
 assembly_source_files := $(wildcard boot/$(arch)/*.asm)
 assembly_object_files := $(patsubst boot/$(arch)/%.asm, target/arch/$(arch)/%.o, $(assembly_source_files))
-rust_os := target/x86_64-rust_os/debug/librust_os.a
+rust_os := target/x86_64-rust_os/debug/librust_os_boot.a
 
 .PHONY: all clean run debug iso
 
