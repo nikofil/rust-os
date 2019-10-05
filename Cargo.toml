@@ -1,7 +1,8 @@
 [workspace]
 members = [
     "boot",
-    "kernel"
+    "kernel",
+    "runner"
 ]
 
 [profile.dev]

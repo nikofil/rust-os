@@ -3,7 +3,8 @@
 #![feature(lang_items)]
 #![feature(naked_functions)]
 
-mod vga_buffer;
+pub mod vga_buffer;
+
 use vga_buffer::cls;
 
 use core::panic::PanicInfo;
