@@ -1,3 +1,6 @@
+extern _start
+global _setup_stack
+
 section .multiboot_header
 header_start:
     dd 0xe85250d6                ; multiboot 2 magic number
@@ -9,3 +12,14 @@ header_start:
     dw 0 ; flags
     dd 8 ; size
 header_end:
+
+section .setup_stack
+bits 32
+_setup_stack:
+    mov esp, stack_top
+    jmp _start
+
+section .bss
+stack_bottom:
+    resb 128
+stack_top:

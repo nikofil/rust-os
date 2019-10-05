@@ -1,4 +1,4 @@
-ENTRY(_start)
+ENTRY(_setup_stack)
 
 SECTIONS {
     . = 1M;
@@ -6,6 +6,11 @@ SECTIONS {
     .boot :
     {
         *(.multiboot_header)
+    }
+
+    .setup_stack :
+    {
+        *(.setup_stack)
     }
 
     .text :
