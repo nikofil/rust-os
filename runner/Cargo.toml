@@ -6,5 +6,10 @@ edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
-"rust-os" = { path = "../kernel" }
+"rust-os" = { path = "../kernel", features = ["no-panic-handler"] }
 bootloader = "0.8.0"
+x86_64 = "0.7.5"
+
+[package.metadata.bootimage]
+test-args = ["-device", "isa-debug-exit,iobase=0xf4,iosize=0x04", "-serial", "stdio"]
+test-success-exit-code = 33         # (0x10 << 1) | 1

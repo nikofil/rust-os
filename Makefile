@@ -15,6 +15,9 @@ all: $(kernel)
 clean:
 	@rm -rf target
 
+test:
+	@cargo xtest -p rust-os-runner --bin rust-os-runner
+
 run: $(iso)
 	@qemu-system-x86_64 -cdrom $(iso)
 
@@ -41,6 +44,6 @@ target/arch/$(arch)/%.o: boot/$(arch)/%.asm
 
 # compile rust OS
 $(rust_os): FORCE
-	@cargo xbuild
+	@cargo xbuild -p rust-os-boot
 
 FORCE: ;

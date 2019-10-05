@@ -4,14 +4,17 @@
 #![feature(naked_functions)]
 
 pub mod vga_buffer;
+pub mod serial_port;
 
 use vga_buffer::cls;
 
-use core::panic::PanicInfo;
 use crate::vga_buffer::set_color;
 use crate::vga_buffer::Color;
 
+#[cfg(not(feature = "no-panic-handler"))]
+use core::panic::PanicInfo;
 /// This function is called on panic.
+#[cfg(not(feature = "no-panic-handler"))]
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
     println!("{}", info);
