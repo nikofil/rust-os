@@ -1,6 +1,6 @@
 arch ?= x86_64
 kernel := target/kernel-$(arch).bin
-iso := target/os-$(arch).iso
+iso := target/rust-os-$(arch).iso
 
 linker_script := boot/$(arch)/linker.ld
 grub_cfg := boot/$(arch)/grub.cfg
@@ -8,7 +8,7 @@ assembly_source_files := $(wildcard boot/$(arch)/*.asm)
 assembly_object_files := $(patsubst boot/$(arch)/%.asm, target/arch/$(arch)/%.o, $(assembly_source_files))
 rust_os := target/x86_64-rust_os/debug/librust_os.a
 
-.PHONY: all clean run iso
+.PHONY: all clean run debug iso
 
 all: $(kernel)
 
@@ -17,6 +17,9 @@ clean:
 
 run: $(iso)
 	@qemu-system-x86_64 -cdrom $(iso)
+
+debug: $(iso)
+	@qemu-system-x86_64 -s -S -cdrom $(iso)
 
 iso: $(iso)
 
