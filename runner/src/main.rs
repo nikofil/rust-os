@@ -8,7 +8,8 @@
 #![reexport_test_harness_main = "test_main"]
 
 #[allow(unused_imports)]
-use rust_os::serial_println;
+use rust_os::{println, serial_println};
+use rust_os::vga_buffer::WRITER;
 use x86_64::instructions::port::Port;
 use core::panic::PanicInfo;
 
@@ -52,8 +53,13 @@ pub extern "C" fn _start() -> ! {
 }
 
 #[test_case]
-fn trivial_assertion() {
-    serial_println!("trivial assertion... ");
-    assert_eq!(1, 2);
-    serial_println!("[ok]");
+fn test_vga_out() {
+    serial_println!("Testing: VGA output... ");
+    for i in 0..200 {
+        println!("output {}", i);
+    }
+    let line = WRITER.lock().get_line(1);
+    assert_eq!(&line[0..10], "output 199".as_bytes());
+    serial_println!("Ok");
+    for _ in 0..2000000 {}
 }

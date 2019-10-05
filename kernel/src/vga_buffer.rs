@@ -58,7 +58,7 @@ pub enum Color {
 
 #[repr(C)]
 #[derive(Copy, Clone)]
-struct ScreenChar {
+pub struct ScreenChar {
     chr: u8,
     color: u8,
 }
@@ -142,6 +142,14 @@ impl ScreenWriter {
 
     pub fn set_blink(&mut self, blink: bool) {
         self.blink = blink;
+    }
+
+    pub fn get_line(&self, line: usize) -> [u8; BUFFER_WIDTH] {
+        let mut line_buf = [0 as u8; BUFFER_WIDTH];
+        for (i, c) in self.buffer.chars[BUFFER_HEIGHT-1-line].iter().enumerate() {
+            line_buf[i] = c.chr;
+        }
+        line_buf
     }
 }
 
