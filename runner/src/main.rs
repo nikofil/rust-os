@@ -12,6 +12,7 @@ use rust_os::{println, serial_println};
 use rust_os::vga_buffer::WRITER;
 use x86_64::instructions::port::Port;
 use core::panic::PanicInfo;
+use x86_64::structures::idt::ExceptionStackFrame;
 
 #[cfg(test)]
 #[panic_handler]
