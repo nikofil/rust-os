@@ -24,11 +24,9 @@ fn panic(info: &PanicInfo) -> ! {
     loop {}
 }
 
-#[naked]
 #[no_mangle]
-#[allow(const_err)]
 pub extern "C" fn ua64_mode_start() -> ! {
-    unsafe {
+   unsafe {
         asm!("\
             mov ax, 0
             mov ss, ax
@@ -43,18 +41,13 @@ pub extern "C" fn ua64_mode_start() -> ! {
     set_color(Color::Red, Color::Black, false);
     println!("IT'S ALIVE!!!");
     set_color(Color::LightGreen, Color::Black, false);
-    println!("Hello world!");
-    cause_page_fault();
+    println!("Hello world1!");
+    divide_by_zero();
     loop {}
 }
 
 fn divide_by_zero() {
     unsafe {
-        asm!("mov dx, 0; div dx" ::: "ax", "dx" : "volatile", "intel")
+        asm!("mov rax, 0; mov rdx, 0; div rdx" :::: "volatile", "intel")
     }
-}
-
-fn cause_page_fault() {
-    let x = [1,2,3,4,5,6,7,8,9];
-    unsafe{ *(0xdeadbeaf as *mut u64) = x[4] };
 }

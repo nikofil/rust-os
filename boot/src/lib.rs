@@ -201,7 +201,7 @@ pub extern "C" fn _start() -> ! {
     unsafe {
         asm!("\
         lgdt _gdt64_pointer
-        jmp _ua64_mode_entry
+        call _ua64_mode_entry
         " :::: "intel");
     }
     loop {}

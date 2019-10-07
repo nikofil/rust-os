@@ -19,7 +19,7 @@ test:
 	@cargo xtest -p rust-os-runner --bin rust-os-runner
 
 run: $(iso)
-	@qemu-system-x86_64 -cdrom $(iso)
+	@qemu-system-x86_64 -d int --no-reboot -cdrom $(iso)
 
 debug: $(iso)
 	@qemu-system-x86_64 -s -S -cdrom $(iso)

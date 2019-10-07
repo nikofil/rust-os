@@ -1,3 +1,4 @@
+extern long_mode_start
 extern ua64_mode_start
 
 global _stack_top
