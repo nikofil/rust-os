@@ -4,9 +4,9 @@
 #![feature(naked_functions)]
 #![feature(abi_x86_interrupt)]
 
-pub mod vga_buffer;
-pub mod serial_port;
-pub mod interrupts;
+mod vga_buffer;
+mod serial_port;
+mod interrupts;
 
 use vga_buffer::cls;
 use interrupts::setup_idt;
@@ -24,6 +24,7 @@ fn panic(info: &PanicInfo) -> ! {
     loop {}
 }
 
+#[naked]
 #[no_mangle]
 pub extern "C" fn ua64_mode_start() -> ! {
    unsafe {
@@ -36,13 +37,19 @@ pub extern "C" fn ua64_mode_start() -> ! {
             mov gs, ax
         " :::: "intel");
     }
+    start();
+}
+
+pub fn start() -> ! {
     cls();
     setup_idt();
-    set_color(Color::Red, Color::Black, false);
-    println!("IT'S ALIVE!!!");
     set_color(Color::LightGreen, Color::Black, false);
     println!("Hello world1!");
-    divide_by_zero();
+    // divide_by_zero();
+    // x86_64::instructions::interrupts::int3();
+    cause_page_fault();
+    set_color(Color::Red, Color::Black, false);
+    println!("I'M STILL ALIVE!!!");
     loop {}
 }
 
@@ -50,4 +57,10 @@ fn divide_by_zero() {
     unsafe {
         asm!("mov rax, 0; mov rdx, 0; div rdx" :::: "volatile", "intel")
     }
+}
+
+fn cause_page_fault() {
+    unsafe {
+        *(0xdeadbeef as *mut u64) = 42;
+    };
 }

@@ -44,5 +44,5 @@ _p3_table:
 _p2_table:
     resb 4096
 _stack_bottom:
-    resb 128
+    resb 1024*40
 _stack_top:
