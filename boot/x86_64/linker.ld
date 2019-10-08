@@ -8,11 +8,6 @@ SECTIONS {
         *(.multiboot_header)
     }
 
-    .setup_stack :
-    {
-        *(.setup_stack)
-    }
-
     .text :
     {
         *(.text)

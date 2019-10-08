@@ -3,6 +3,7 @@ kernel := target/kernel-$(arch).bin
 iso := target/rust-os-$(arch).iso
 
 linker_script := boot/$(arch)/linker.ld
+ld_mapfile := target/linker.map
 grub_cfg := boot/$(arch)/grub.cfg
 assembly_source_files := $(wildcard boot/$(arch)/*.asm)
 assembly_object_files := $(patsubst boot/$(arch)/%.asm, target/arch/$(arch)/%.o, $(assembly_source_files))
@@ -22,7 +23,7 @@ run: $(iso)
 	@qemu-system-x86_64 -d int --no-reboot -cdrom $(iso)
 
 debug: $(iso)
-	@qemu-system-x86_64 -s -S -cdrom $(iso)
+	@qemu-system-x86_64 -d int --no-reboot -s -S -cdrom $(iso)
 
 iso: $(iso)
 
@@ -35,7 +36,7 @@ $(iso): $(kernel) $(grub_cfg)
 
 $(kernel): $(rust_os) $(assembly_object_files) $(linker_script)
 	@mkdir -p target
-	@ld -n -T $(linker_script) -o $(kernel) $(assembly_object_files) $(rust_os)
+	@ld -n -T $(linker_script) -o $(kernel) -Map=$(ld_mapfile) $(assembly_object_files) $(rust_os)
 
 # compile assembly files
 target/arch/$(arch)/%.o: boot/$(arch)/%.asm

@@ -7,9 +7,11 @@
 mod vga_buffer;
 mod serial_port;
 mod interrupts;
+mod gdt;
 
 use vga_buffer::cls;
 use interrupts::setup_idt;
+use gdt::init_gdt;
 
 use crate::vga_buffer::set_color;
 use crate::vga_buffer::Color;
@@ -42,15 +44,24 @@ pub extern "C" fn ua64_mode_start() -> ! {
 
 pub fn start() -> ! {
     cls();
+    init_gdt();
     setup_idt();
     set_color(Color::LightGreen, Color::Black, false);
     println!("Hello world1!");
     // divide_by_zero();
     // x86_64::instructions::interrupts::int3();
+    halt();
     cause_page_fault();
     set_color(Color::Red, Color::Black, false);
     println!("I'M STILL ALIVE!!!");
     loop {}
+}
+
+fn halt() {
+    unsafe {
+        asm!("mov rsp, 0xFFFFFFFFFF;" :::: "volatile", "intel")
+    }
+    halt();
 }
 
 fn divide_by_zero() {

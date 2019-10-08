@@ -19,6 +19,11 @@ extern "x86-interrupt" fn page_fault(stack_frame: &mut InterruptStackFrame, err_
     loop {}
 }
 
+extern "x86-interrupt" fn double_fault(stack_frame: &mut InterruptStackFrame, err_code: u64) {
+    println!("double fault! err code: {} {:?}", err_code, stack_frame);
+    loop {}
+}
+
 lazy_static! {
     static ref INTERRUPT_TABLE: InterruptDescriptorTable = {
         let mut vectors = [
@@ -28,6 +33,7 @@ lazy_static! {
             ($i:literal, $e:expr) => { vectors[$i] = IDTEntry::new($e as *const IDTHandler, segmentation::cs(), 0, true, 0); }
         }
         idt_entry!(0, div_by_zero);
+        vectors[8] = IDTEntry::new(double_fault as *const IDTHandler, segmentation::cs(), crate::gdt::DOUBLE_FAULT_IST_INDEX + 1, true, 0);
         idt_entry!(14, page_fault);
         InterruptDescriptorTable(vectors)
     };
@@ -55,7 +61,7 @@ impl InterruptDescriptorTable {
 #[repr(C, packed)]
 struct IDTEntry {
     handler_low: u16,
-    gdt_selector: SegmentSelector,
+    gdt_selector: u16,
     options: u16,
     handler_mid: u16,
     handler_hi: u32,
@@ -77,11 +83,12 @@ impl IDTEntry {
         let handler_low = (handler_ptr & 0xFFFF) as u16;
         let handler_mid = ((handler_ptr >> 16) & 0xFFFF) as u16;
         let handler_hi = (handler_ptr >> 32) as u32;
+        let gdt_selector = gdt_selector.0;
         IDTEntry { handler_low, handler_mid, handler_hi, options, gdt_selector, reserved: 0 }
     }
 
     fn empty() -> IDTEntry {
-        IDTEntry { handler_low: 0, handler_mid: 0, handler_hi: 0, options: 0, gdt_selector: segmentation::cs(), reserved: 0 }
+        IDTEntry { handler_low: 0, handler_mid: 0, handler_hi: 0, options: 0, gdt_selector: segmentation::cs().0, reserved: 0 }
     }
 }
 
