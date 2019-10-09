@@ -24,7 +24,14 @@ header_end:
 bits 32
 
 _ua64_mode_entry:
-jmp _gdt64_code_off:ua64_mode_start
+mov edx, 0xC0000000
+add esp, edx
+mov eax, _ua64_mode_entry_high
+add eax, edx
+jmp eax
+_ua64_mode_entry_high:
+mov dword [_p3_table], 0
+jmp _gdt64_code_off:ua64_mode_start + 0xC0000000
 
 section .rodata
 gdt64:

@@ -90,7 +90,7 @@ impl ScreenWriter {
             bg_color: Color::Black,
             blink: false,
             buffer: unsafe {
-                &mut *(0xb8000 as *mut Buffer)
+                &mut *(0xc00b8000 as *mut Buffer)
             },
         }
     }

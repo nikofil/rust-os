@@ -113,6 +113,7 @@ pub extern "C" fn _setup_page_table() {
             lea eax, _p2_table
             or eax, 3 // present + writable
             mov [_p3_table], eax
+            mov [_p3_table + 24], eax
 
             // map each P2 entry to a huge 2MiB page
             mov ecx, 0         // counter variable
@@ -143,7 +144,7 @@ pub extern "C" fn _enable_paging() {
     unsafe {
         asm!("
             // load P4 to cr3 register (cpu uses this to access the P4 table)
-            mov rax, _p4_table
+            lea rax, _p4_table
             mov cr3, rax
             xor rax, rax
             mov rax, cr3
