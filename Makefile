@@ -7,7 +7,7 @@ ld_mapfile := target/linker.map
 grub_cfg := boot/$(arch)/grub.cfg
 assembly_source_files := $(wildcard boot/$(arch)/*.asm)
 assembly_object_files := $(patsubst boot/$(arch)/%.asm, target/arch/$(arch)/%.o, $(assembly_source_files))
-rust_os := target/x86_64-rust_os/debug/librust_os_boot.a
+rust_os := target/x86_64-rust_os/debug/librust_os.a
 
 .PHONY: all clean run debug iso
 
@@ -36,7 +36,7 @@ $(iso): $(kernel) $(grub_cfg)
 
 $(kernel): $(rust_os) $(assembly_object_files) $(linker_script)
 	@mkdir -p target
-	@ld -n -T $(linker_script) -o $(kernel) -Map=$(ld_mapfile) $(assembly_object_files) $(rust_os)
+	@ld -z noreloc-overflow -n -T $(linker_script) -o $(kernel) -Map=$(ld_mapfile) $(assembly_object_files) $(rust_os)
 
 # compile assembly files
 target/arch/$(arch)/%.o: boot/$(arch)/%.asm
@@ -45,6 +45,6 @@ target/arch/$(arch)/%.o: boot/$(arch)/%.asm
 
 # compile rust OS
 $(rust_os): FORCE
-	@cargo xbuild -p rust-os-boot
+	@cargo xbuild -p rust-os
 
 FORCE: ;

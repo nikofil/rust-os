@@ -44,10 +44,10 @@ pub extern "C" fn ua64_mode_start() -> ! {
 
 pub fn start() -> ! {
     cls();
+    println!("Hello world1!");
     init_gdt();
     setup_idt();
     set_color(Color::LightGreen, Color::Black, false);
-    println!("Hello world1!");
     // divide_by_zero();
     // x86_64::instructions::interrupts::int3();
     halt();

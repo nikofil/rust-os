@@ -1,6 +1,5 @@
 [workspace]
 members = [
-    "boot",
     "kernel",
     "runner"
 ]
