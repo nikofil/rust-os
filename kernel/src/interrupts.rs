@@ -14,6 +14,10 @@ extern "x86-interrupt" fn div_by_zero(stack_frame: &mut InterruptStackFrame) {
     println!("div by zero! {:?}", stack_frame);
 }
 
+extern "x86-interrupt" fn breakpoint(stack_frame: &mut InterruptStackFrame) {
+    println!("int3 {:?}", stack_frame);
+}
+
 extern "x86-interrupt" fn page_fault(stack_frame: &mut InterruptStackFrame, err_code: u64) {
     println!("page fault! err code: {} {:?}", err_code, stack_frame);
     loop {}
@@ -33,6 +37,7 @@ lazy_static! {
             ($i:literal, $e:expr) => { vectors[$i] = IDTEntry::new($e as *const IDTHandler, segmentation::cs(), 0, true, 0); }
         }
         idt_entry!(0, div_by_zero);
+        idt_entry!(3, breakpoint);
         vectors[8] = IDTEntry::new(double_fault as *const IDTHandler, segmentation::cs(), crate::gdt::DOUBLE_FAULT_IST_INDEX + 1, true, 0);
         idt_entry!(14, page_fault);
         InterruptDescriptorTable(vectors)

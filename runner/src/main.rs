@@ -9,7 +9,8 @@
 
 #[allow(unused_imports)]
 use rust_os::{println, serial_println};
-use rust_os::vga_buffer::ScreenWriter;
+use rust_os::vga_buffer::{WRITER, cls};
+use rust_os::interrupts::setup_idt;
 use x86_64::instructions::port::Port;
 use core::panic::PanicInfo;
 
@@ -54,14 +55,34 @@ pub extern "C" fn _start() -> ! {
 
 #[test_case]
 fn test_vga_out() {
-    use core::fmt::Write;
-    let mut writer = ScreenWriter::new(0xb8000);
-    serial_println!("Testing: VGA output... ");
+    serial_println!("Testing: VGA output...");
     for i in 0..200 {
-        writer.write_fmt(format_args!("output {}\n", i));
+        println!("output {}", i);
     }
-    let line = writer.get_line(1);
+    let line = WRITER.lock().get_line(1);
     assert_eq!(&line[0..10], "output 199".as_bytes());
+    serial_println!("Last output: {} == 'output 199'", core::str::from_utf8(&line[0..10]).unwrap());
     serial_println!("Ok");
-    for _ in 0..2000000 {}
+}
+
+#[test_case]
+fn test_int3() {
+    setup_idt();
+    cls();
+    serial_println!("Testing: INT3 breakpoint exception is handled...");
+    x86_64::instructions::interrupts::int3();
+    let mut found_int3 = false;
+    for i in (1..20).rev() {
+        let line = WRITER.lock().get_line(i);
+        if line[0] != 0x20 {
+            let line_s = core::str::from_utf8(&line).unwrap();
+            if line_s.contains("int3") {
+                found_int3 = true;
+            }
+            serial_println!("Exception handler output: {}", line_s);
+        }
+    }
+    assert!(found_int3);
+    serial_println!("Found \"int3\" pattern");
+    serial_println!("Ok");
 }

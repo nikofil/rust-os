@@ -6,7 +6,7 @@
 
 pub mod vga_buffer;
 pub mod serial_port;
-mod interrupts;
+pub mod interrupts;
 mod gdt;
 
 use vga_buffer::cls;
