@@ -17,7 +17,9 @@ clean:
 	@rm -rf target
 
 test:
+	@sed -Ei 's/^(crate-type = ).*/\1["lib"]/g' kernel/Cargo.toml
 	@cargo xtest -p rust-os-runner --bin rust-os-runner
+	@sed -Ei 's/^(crate-type = ).*/\1["staticlib"]/g' kernel/Cargo.toml
 
 run: $(iso)
 	@qemu-system-x86_64 -d int --no-reboot -cdrom $(iso)

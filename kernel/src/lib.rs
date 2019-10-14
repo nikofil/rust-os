@@ -4,8 +4,8 @@
 #![feature(naked_functions)]
 #![feature(abi_x86_interrupt)]
 
-mod vga_buffer;
-mod serial_port;
+pub mod vga_buffer;
+pub mod serial_port;
 mod interrupts;
 mod gdt;
 

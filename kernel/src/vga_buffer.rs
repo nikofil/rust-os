@@ -3,7 +3,7 @@ use lazy_static::lazy_static;
 use spin::Mutex;
 
 lazy_static! {
-    pub static ref WRITER: Mutex<ScreenWriter> = Mutex::new(ScreenWriter::new());
+    pub static ref WRITER: Mutex<ScreenWriter> = Mutex::new(ScreenWriter::new(0xc00b8000));
 }
 
 #[macro_export]
@@ -82,7 +82,7 @@ pub struct ScreenWriter {
 
 #[allow(dead_code)]
 impl ScreenWriter {
-     pub(crate) fn new() -> ScreenWriter {
+     pub fn new(addr: u64) -> ScreenWriter {
         ScreenWriter {
             col: 0,
             row: BUFFER_HEIGHT-1,
@@ -90,7 +90,7 @@ impl ScreenWriter {
             bg_color: Color::Black,
             blink: false,
             buffer: unsafe {
-                &mut *(0xc00b8000 as *mut Buffer)
+                &mut *(addr as *mut Buffer)
             },
         }
     }

@@ -9,7 +9,7 @@
 
 #[allow(unused_imports)]
 use rust_os::{println, serial_println};
-use rust_os::vga_buffer::WRITER;
+use rust_os::vga_buffer::ScreenWriter;
 use x86_64::instructions::port::Port;
 use core::panic::PanicInfo;
 
@@ -54,11 +54,13 @@ pub extern "C" fn _start() -> ! {
 
 #[test_case]
 fn test_vga_out() {
+    use core::fmt::Write;
+    let mut writer = ScreenWriter::new(0xb8000);
     serial_println!("Testing: VGA output... ");
     for i in 0..200 {
-        println!("output {}", i);
+        writer.write_fmt(format_args!("output {}\n", i));
     }
-    let line = WRITER.lock().get_line(1);
+    let line = writer.get_line(1);
     assert_eq!(&line[0..10], "output 199".as_bytes());
     serial_println!("Ok");
     for _ in 0..2000000 {}
