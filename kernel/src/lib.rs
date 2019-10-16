@@ -7,6 +7,7 @@
 pub mod vga_buffer;
 pub mod serial_port;
 pub mod interrupts;
+pub mod port;
 mod gdt;
 
 use vga_buffer::cls;
@@ -15,9 +16,11 @@ use gdt::init_gdt;
 
 use crate::vga_buffer::set_color;
 use crate::vga_buffer::Color;
+use crate::port::{Port, init_pics};
 
 #[cfg(not(feature = "no-panic-handler"))]
 use core::panic::PanicInfo;
+
 /// This function is called on panic.
 #[cfg(not(feature = "no-panic-handler"))]
 #[panic_handler]
@@ -50,10 +53,11 @@ pub fn start() -> ! {
     set_color(Color::LightGreen, Color::Black, false);
     // divide_by_zero();
     // x86_64::instructions::interrupts::int3();
-    halt();
-    cause_page_fault();
+    // halt();
+    // cause_page_fault();
     set_color(Color::Red, Color::Black, false);
     println!("I'M STILL ALIVE!!!");
+    init_pics();
     loop {}
 }
 

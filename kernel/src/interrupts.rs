@@ -1,4 +1,5 @@
-use crate::println;
+use crate::{println, print};
+use crate::port::{Port, end_of_interrupt};
 use lazy_static::lazy_static;
 
 extern crate x86_64;
@@ -28,6 +29,21 @@ extern "x86-interrupt" fn double_fault(stack_frame: &mut InterruptStackFrame, er
     loop {}
 }
 
+unsafe extern "x86-interrupt" fn timer(stack_frame: &mut InterruptStackFrame) {
+    asm!("cli" :::: "intel");
+    print!(".");
+    end_of_interrupt();
+    asm!("sti" :::: "intel");
+}
+
+unsafe extern "x86-interrupt" fn keyboard(stack_frame: &mut InterruptStackFrame) {
+    asm!("cli" :::: "intel");
+    let port: Port<u8> = Port::new(0x60);
+    print!("{}", port.read());
+    end_of_interrupt();
+    asm!("sti" :::: "intel");
+}
+
 lazy_static! {
     static ref INTERRUPT_TABLE: InterruptDescriptorTable = {
         let mut vectors = [
@@ -40,6 +56,8 @@ lazy_static! {
         idt_entry!(3, breakpoint);
         vectors[8] = IDTEntry::new(double_fault as *const IDTHandler, segmentation::cs(), crate::gdt::DOUBLE_FAULT_IST_INDEX + 1, true, 0);
         idt_entry!(14, page_fault);
+        idt_entry!(32, timer);
+        idt_entry!(33, keyboard);
         InterruptDescriptorTable(vectors)
     };
 }
