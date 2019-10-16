@@ -16,7 +16,7 @@ use gdt::init_gdt;
 
 use crate::vga_buffer::set_color;
 use crate::vga_buffer::Color;
-use crate::port::{Port, init_pics};
+use crate::port::init_pics;
 
 #[cfg(not(feature = "no-panic-handler"))]
 use core::panic::PanicInfo;
@@ -50,32 +50,9 @@ pub fn start() -> ! {
     println!("Hello world1!");
     init_gdt();
     setup_idt();
+    init_pics();
     set_color(Color::LightGreen, Color::Black, false);
-    // divide_by_zero();
-    // x86_64::instructions::interrupts::int3();
-    // halt();
-    // cause_page_fault();
     set_color(Color::Red, Color::Black, false);
     println!("I'M STILL ALIVE!!!");
-    init_pics();
     loop {}
-}
-
-fn halt() {
-    unsafe {
-        asm!("mov rsp, 0xFFFFFFFFFF;" :::: "volatile", "intel")
-    }
-    halt();
-}
-
-fn divide_by_zero() {
-    unsafe {
-        asm!("mov rax, 0; mov rdx, 0; div rdx" :::: "volatile", "intel")
-    }
-}
-
-fn cause_page_fault() {
-    unsafe {
-        *(0xdeadbeef as *mut u64) = 42;
-    };
 }

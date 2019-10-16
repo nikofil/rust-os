@@ -11,6 +11,17 @@ use core::mem::size_of;
 
 type IDTHandler = extern "x86-interrupt" fn();
 
+macro_rules! irq_fn {
+    ($f: ident, $i: literal, $e:expr) => {
+        unsafe extern "x86-interrupt" fn $f(_stack_frame: &mut InterruptStackFrame) {
+            asm!("cli" :::: "intel");
+            $e();
+            end_of_interrupt($i);
+            asm!("sti" :::: "intel");
+        }
+    }
+}
+
 extern "x86-interrupt" fn div_by_zero(stack_frame: &mut InterruptStackFrame) {
     println!("div by zero! {:?}", stack_frame);
 }
@@ -29,20 +40,14 @@ extern "x86-interrupt" fn double_fault(stack_frame: &mut InterruptStackFrame, er
     loop {}
 }
 
-unsafe extern "x86-interrupt" fn timer(stack_frame: &mut InterruptStackFrame) {
-    asm!("cli" :::: "intel");
+irq_fn!(timer, 32, || {
     print!(".");
-    end_of_interrupt();
-    asm!("sti" :::: "intel");
-}
+});
 
-unsafe extern "x86-interrupt" fn keyboard(stack_frame: &mut InterruptStackFrame) {
-    asm!("cli" :::: "intel");
+irq_fn!(keyboard, 33, || {
     let port: Port<u8> = Port::new(0x60);
     print!("{}", port.read());
-    end_of_interrupt();
-    asm!("sti" :::: "intel");
-}
+});
 
 lazy_static! {
     static ref INTERRUPT_TABLE: InterruptDescriptorTable = {

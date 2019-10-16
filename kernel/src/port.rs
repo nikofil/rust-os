@@ -8,7 +8,7 @@ pub trait InOut {
 
 impl InOut for u8 {
     unsafe fn port_in(port: u16) -> Self {
-        let mut val = 0;
+        let mut val;
         asm!("in al, dx" : "={al}"(val) : "{dx}"(port) :: "intel");
         return val;
     }
@@ -20,7 +20,7 @@ impl InOut for u8 {
 
 impl InOut for u16 {
     unsafe fn port_in(port: u16) -> Self {
-        let mut val = 0;
+        let mut val;
         asm!("in ax, dx" : "={ax}"(val) : "{dx}"(port) :: "intel");
         return val;
     }
@@ -32,7 +32,7 @@ impl InOut for u16 {
 
 impl InOut for u32 {
     unsafe fn port_in(port: u16) -> Self {
-        let mut val = 0;
+        let mut val;
         asm!("in eax, dx" : "={eax}"(val) : "{dx}"(port) :: "intel");
         return val;
     }
@@ -73,7 +73,7 @@ const ICW1_INIT: u8 = 0x10; // Initialization - required!
 const ICW4_8086: u8 = 0x01; // 8086/88 (MCS-80/85) mode
 
 const PIC_MASTER_NEW_OFFSET: u8 = 0x20;
-const PIC_SLAVE_NEW_OFFSET: u8 = 0x20;
+const PIC_SLAVE_NEW_OFFSET: u8 = 0x28;
 
 const END_OF_INTERRUPT: u8 = 0x20;
 
@@ -119,11 +119,16 @@ pub fn init_pics() {
     master_data.write(a1);
     slave_data.write(a2);
 
+    println!(" - Enabling interrupts");
     unsafe {
         asm!("sti" ::::: "intel");
     }
+    println!(" - Interrupts enabled");
 }
 
-pub fn end_of_interrupt() {
-     Port::new(PIC_MASTER_PORT).write(END_OF_INTERRUPT);
+pub fn end_of_interrupt(interrupt_id: u8) {
+    if interrupt_id >= PIC_SLAVE_NEW_OFFSET && interrupt_id < PIC_SLAVE_NEW_OFFSET + 8 {
+        Port::new(PIC_SLAVE_PORT).write(END_OF_INTERRUPT);
+    }
+    Port::new(PIC_MASTER_PORT).write(END_OF_INTERRUPT);
 }

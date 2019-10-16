@@ -13,6 +13,7 @@ use rust_os::vga_buffer::{WRITER, cls};
 use rust_os::interrupts::setup_idt;
 use x86_64::instructions::port::Port;
 use core::panic::PanicInfo;
+use rust_os::port::init_pics;
 
 #[cfg(test)]
 #[panic_handler]
@@ -84,5 +85,22 @@ fn test_int3() {
     }
     assert!(found_int3);
     serial_println!("Found \"int3\" pattern");
+    serial_println!("Ok");
+}
+
+
+#[test_case]
+fn test_timer() {
+    setup_idt();
+    cls();
+    serial_println!("Testing: Timer IRQ handler writes dots on screen...");
+    let line = WRITER.lock().get_line(0);
+    assert!(!line.contains(&('.' as u8)));
+    serial_println!("Line starts out with no dots...");
+    init_pics();
+    for _ in 0..1000000 {}
+    let line = WRITER.lock().get_line(0);
+    assert!(line.contains(&('.' as u8)));
+    serial_println!("Line has dots after some time: {}", core::str::from_utf8(&line).unwrap());
     serial_println!("Ok");
 }
