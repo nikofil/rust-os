@@ -1,23 +1,32 @@
 use crate::{println, print};
 use crate::port::{Port, end_of_interrupt};
 use lazy_static::lazy_static;
+use spin::Mutex;
 
-extern crate x86_64;
 use x86_64::structures::idt::InterruptStackFrame;
 use x86_64::instructions::tables::{lidt, DescriptorTablePointer};
 use x86_64::instructions::segmentation;
 use x86_64::structures::gdt::SegmentSelector;
+
+use pc_keyboard::{Keyboard, layouts, ScancodeSet1, DecodedKey};
+
 use core::mem::size_of;
 
 type IDTHandler = extern "x86-interrupt" fn();
 
+lazy_static! {
+    static ref KEYBOARD: Mutex<Keyboard<layouts::Us104Key, ScancodeSet1>> = Mutex::new(
+        Keyboard::new(layouts::Us104Key, ScancodeSet1)
+    );
+}
+
 macro_rules! irq_fn {
     ($f: ident, $i: literal, $e:expr) => {
         unsafe extern "x86-interrupt" fn $f(_stack_frame: &mut InterruptStackFrame) {
-            asm!("cli" :::: "intel");
+            asm!("cli" :::: "intel", "volatile");
             $e();
             end_of_interrupt($i);
-            asm!("sti" :::: "intel");
+            asm!("sti" :::: "intel", "volatile");
         }
     }
 }
@@ -46,7 +55,16 @@ irq_fn!(timer, 32, || {
 
 irq_fn!(keyboard, 33, || {
     let port: Port<u8> = Port::new(0x60);
-    print!("{}", port.read());
+    let scancode = port.read();
+    let mut keybd = KEYBOARD.lock();
+    if let Ok(Some(key_evt)) = keybd.add_byte(scancode) {
+        if let Some(key) = keybd.process_keyevent(key_evt) {
+            match key {
+                DecodedKey::Unicode(character) => print!("{}", character),
+                DecodedKey::RawKey(key) => print!("{:?}", key),
+            }
+        }
+    }
 });
 
 lazy_static! {

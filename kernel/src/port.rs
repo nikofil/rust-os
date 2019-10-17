@@ -9,7 +9,7 @@ pub trait InOut {
 impl InOut for u8 {
     unsafe fn port_in(port: u16) -> Self {
         let mut val;
-        asm!("in al, dx" : "={al}"(val) : "{dx}"(port) :: "intel");
+        asm!("in al, dx" : "={al}"(val) : "{dx}"(port) :: "intel", "volatile");
         return val;
     }
 
@@ -21,7 +21,7 @@ impl InOut for u8 {
 impl InOut for u16 {
     unsafe fn port_in(port: u16) -> Self {
         let mut val;
-        asm!("in ax, dx" : "={ax}"(val) : "{dx}"(port) :: "intel");
+        asm!("in ax, dx" : "={ax}"(val) : "{dx}"(port) :: "intel", "volatile");
         return val;
     }
 
@@ -33,7 +33,7 @@ impl InOut for u16 {
 impl InOut for u32 {
     unsafe fn port_in(port: u16) -> Self {
         let mut val;
-        asm!("in eax, dx" : "={eax}"(val) : "{dx}"(port) :: "intel");
+        asm!("in eax, dx" : "={eax}"(val) : "{dx}"(port) :: "intel", "volatile");
         return val;
     }
 
@@ -121,7 +121,7 @@ pub fn init_pics() {
 
     println!(" - Enabling interrupts");
     unsafe {
-        asm!("sti" ::::: "intel");
+        asm!("sti" ::::: "intel", "volatile");
     }
     println!(" - Interrupts enabled");
 }

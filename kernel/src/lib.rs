@@ -4,6 +4,9 @@
 #![feature(naked_functions)]
 #![feature(abi_x86_interrupt)]
 
+extern crate x86_64;
+extern crate pc_keyboard;
+
 pub mod vga_buffer;
 pub mod serial_port;
 pub mod interrupts;
@@ -54,5 +57,7 @@ pub fn start() -> ! {
     set_color(Color::LightGreen, Color::Black, false);
     set_color(Color::Red, Color::Black, false);
     println!("I'M STILL ALIVE!!!");
-    loop {}
+    loop {
+        x86_64::instructions::hlt();
+    }
 }
