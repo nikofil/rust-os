@@ -1,21 +1,6 @@
-extern long_mode_start
 extern ua64_mode_start
 
 global _start
-global _stack_top
-global _stack_top_low
-global _p2_table
-global _p3_table
-global _p4_table
-global _p2_table_low
-global _p3_table_low
-global _p4_table_low
-global _gdt64_code_off
-global _gdt64_pointer
-global _ua64_mode_entry
-global _setup_esp
-global _setup_page_table
-global _enable_paging
 
 section .multiboot_header
 header_start:
