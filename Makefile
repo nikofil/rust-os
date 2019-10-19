@@ -7,7 +7,7 @@ ld_mapfile := target/linker.map
 grub_cfg := boot/$(arch)/grub.cfg
 assembly_source_files := $(wildcard boot/$(arch)/*.asm)
 assembly_object_files := $(patsubst boot/$(arch)/%.asm, target/arch/$(arch)/%.o, $(assembly_source_files))
-rust_os := target/x86_64-rust_os/debug/librust_os.a
+rust_os := target/x86_64-rust_os/release/librust_os.a
 
 .PHONY: all clean run debug iso
 
@@ -47,6 +47,6 @@ target/arch/$(arch)/%.o: boot/$(arch)/%.asm
 
 # compile rust OS
 $(rust_os): FORCE
-	@cargo xbuild -p rust-os
+	@cargo xbuild -p rust-os --release
 
 FORCE: ;

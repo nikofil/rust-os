@@ -18,20 +18,21 @@ macro_rules! println {
 }
 
 pub fn cls() {
-    WRITER.lock().clear();
+    WRITER.try_lock().map(|mut lock| lock.clear());
 }
 
 #[allow(dead_code)]
 pub fn set_color(fg: Color, bg: Color, blink: bool) {
-    let mut writer = WRITER.lock();
-    writer.set_fg(fg);
-    writer.set_bg(bg);
-    writer.set_blink(blink);
+    WRITER.try_lock().map(|mut lock| {
+        lock.set_fg(fg);
+        lock.set_bg(bg);
+        lock.set_blink(blink);
+    });
 }
 
 pub fn  _print(args: fmt::Arguments) {
     use core::fmt::Write;
-    WRITER.lock().write_fmt(args).unwrap();
+    WRITER.try_lock().map(|mut lock| lock.write_fmt(args).unwrap());
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]

@@ -105,10 +105,16 @@ _setup_page_table:
         mov [_p4_table_low], eax
 
         ; map first P3 entry to P2 table
-        mov eax, _p2_table_low
+        mov eax, _p2_table_0_low
         or eax, 3 ; present + writable
         mov [_p3_table_low], eax
         mov [_p3_table_low + 24], eax
+        add eax, 4096
+        mov [_p3_table_low + 32], eax
+        add eax, 4096
+        mov [_p3_table_low + 40], eax
+        add eax, 4096
+        mov [_p3_table_low + 48], eax
 
         ; map each P2 entry to a huge 2MiB page
         mov ecx, 0         ; counter variable
@@ -120,11 +126,11 @@ _setup_page_table:
         or eax, 0x83 ; present + writable + huge
         mov esi, ecx
         shl esi, 3
-        lea edi, [_p2_table_low]
+        lea edi, [_p2_table_0_low]
         add esi, edi
         mov dword [esi], eax     ; map ecx-th entry
         inc ecx            ; increase counter
-        cmp ecx, 512       ; if counter == 512, the whole P2 table is mapped
+        cmp ecx, 2048      ; if counter == 512, the whole P2 table is mapped
         jne .map_p2_table  ; else map the next entry
 
         ret
@@ -179,7 +185,13 @@ _p4_table:
     resb 4096
 _p3_table:
     resb 4096
-_p2_table:
+_p2_table_0:
+    resb 4096
+_p2_table_1:
+    resb 4096
+_p2_table_2:
+    resb 4096
+_p2_table_3:
     resb 4096
 _stack_bottom:
     resb 1024*40
@@ -187,5 +199,8 @@ _stack_top:
 
 _p4_table_low: equ _p4_table - 0xC0000000
 _p3_table_low: equ _p3_table - 0xC0000000
-_p2_table_low: equ _p2_table - 0xC0000000
+_p2_table_0_low: equ _p2_table_0 - 0xC0000000
+_p2_table_1_low: equ _p2_table_1 - 0xC0000000
+_p2_table_2_low: equ _p2_table_2 - 0xC0000000
+_p2_table_3_low: equ _p2_table_3 - 0xC0000000
 _stack_top_low: equ _stack_top - 0xC0000000

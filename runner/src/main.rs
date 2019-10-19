@@ -11,6 +11,7 @@
 use rust_os::{println, serial_println};
 use rust_os::vga_buffer::{WRITER, cls};
 use rust_os::interrupts::setup_idt;
+use rust_os::mem;
 use x86_64::instructions::port::Port;
 use core::panic::PanicInfo;
 use rust_os::port::init_pics;
@@ -88,7 +89,6 @@ fn test_int3() {
     serial_println!("Ok");
 }
 
-
 #[test_case]
 fn test_timer() {
     setup_idt();
@@ -102,5 +102,22 @@ fn test_timer() {
     let line = WRITER.lock().get_line(0);
     assert!(line.contains(&('.' as u8)));
     serial_println!("Line has dots after some time: {}", core::str::from_utf8(&line).unwrap());
+    serial_println!("Ok");
+}
+
+#[test_case]
+fn test_paging_table() {
+    cls();
+    serial_println!("Testing: Paging table resolution...");
+    let virt = unsafe { mem::phys_to_virt(0x1000000).unwrap() };
+    serial_println!("Testing 0x1000000 phys to virt: {:x}", virt);
+    assert_eq!(virt, 0xC1000000);
+    let (phys, pte) = unsafe { mem::virt_to_phys(virt).unwrap() };
+    serial_println!("Testing virt back to phys: {:x}", phys);
+    assert_eq!(phys, 0x1000000);
+    serial_println!("Testing page table entry attrs: {}", pte);
+    assert!(pte.get_bit(mem::BIT_PRESENT));
+    assert!(pte.get_bit(mem::BIT_WRITABLE));
+    assert!(pte.get_bit(mem::BIT_HUGE));
     serial_println!("Ok");
 }
