@@ -71,42 +71,81 @@ impl PageTable {
     }
 }
 
-pub unsafe fn virt_to_phys(virt: u64) -> Option<(u64, &'static PTEntry)> {
-    let p4_off = (virt >> 39) & 0b1_1111_1111;
-    let pte = get_page_table().get_entry(p4_off as usize);
-    if !pte.get_bit(BIT_PRESENT) {
-        return None
+pub struct PhysAddr(u64);
+pub struct VirtAddr(u64);
+
+impl VirtAddr {
+    pub fn new(addr: u64) -> Self {
+        VirtAddr(addr)
     }
-    let p3_off = (virt >> 30) & 0b1_1111_1111;
-    let pte = pte.next_pt().get_entry(p3_off as usize);
-    if !pte.get_bit(BIT_PRESENT) {
-        return None
-    } else if pte.get_bit(BIT_HUGE) {
-        let page_off = virt & 0x3fffffff; // 1 GiB huge page
-        return Some((pte.phys_addr() + page_off, &*pte))
+
+    pub unsafe fn to_ref<T>(&self) -> &'static mut T {
+        &mut *(self.0 as *mut T)
     }
-    let p2_off = (virt >> 21) & 0b1_1111_1111;
-    let pte = pte.next_pt().get_entry(p2_off as usize);
-    if !pte.get_bit(BIT_PRESENT) {
-        return None
-    } else if pte.get_bit(BIT_HUGE) {
-        let page_off = virt & 0x1fffff; // 2 MiB huge page
-        return Some((pte.phys_addr() + page_off, &*pte))
+
+    pub unsafe fn to_phys(&self) -> Option<(PhysAddr, &'static PTEntry)> {
+        let p4_off = (self.0 >> 39) & 0b1_1111_1111;
+        let pte = get_page_table().get_entry(p4_off as usize);
+        if !pte.get_bit(BIT_PRESENT) {
+            return None
+        }
+        let p3_off = (self.0 >> 30) & 0b1_1111_1111;
+        let pte = pte.next_pt().get_entry(p3_off as usize);
+        if !pte.get_bit(BIT_PRESENT) {
+            return None
+        } else if pte.get_bit(BIT_HUGE) {
+            let page_off = self.0 & 0x3fffffff; // 1 GiB huge page
+            return Some((PhysAddr::new(pte.phys_addr() + page_off), &*pte))
+        }
+        let p2_off = (self.0 >> 21) & 0b1_1111_1111;
+        let pte = pte.next_pt().get_entry(p2_off as usize);
+        if !pte.get_bit(BIT_PRESENT) {
+            return None
+        } else if pte.get_bit(BIT_HUGE) {
+            let page_off = self.0 & 0x1fffff; // 2 MiB huge page
+            return Some((PhysAddr::new(pte.phys_addr() + page_off), &*pte))
+        }
+        let p1_off = (self.0 >> 12) & 0b1_1111_1111;
+        let pte = pte.next_pt().get_entry(p1_off as usize);
+        if !pte.get_bit(BIT_PRESENT) {
+            return None
+        } else {
+            let page_off = self.0 & 0xfff; // normal page
+            return Some((PhysAddr::new(pte.phys_addr() + page_off), &*pte))
+        }
     }
-    let p1_off = (virt >> 12) & 0b1_1111_1111;
-    let pte = pte.next_pt().get_entry(p1_off as usize);
-    if !pte.get_bit(BIT_PRESENT) {
-        return None
-    } else {
-        let page_off = virt & 0xfff; // normal page
-        return Some((pte.phys_addr() + page_off, &*pte))
+
+    pub fn addr(&self) -> &u64 {
+        &self.0
     }
 }
 
-pub unsafe fn phys_to_virt(phys: u64) -> Option<u64> {
-    if phys < 0x100000000 {
-        Some(phys + VIRT_OFFSET)
-    } else {
-        None
+impl PhysAddr {
+    pub fn new(addr: u64) -> Self {
+        PhysAddr(addr)
+    }
+
+    pub unsafe fn to_virt(&self) -> Option<VirtAddr> {
+        if self.0 < 0x100000000 {
+            Some(VirtAddr::new(self.0 + VIRT_OFFSET))
+        } else {
+            None
+        }
+    }
+
+    pub fn addr(&self) -> &u64 {
+        &self.0
+    }
+}
+
+impl Display for VirtAddr {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "VirtAddr <{:x}>", self.0)
+    }
+}
+
+impl Display for PhysAddr {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "PhysAddr <{:x}>", self.0)
     }
 }

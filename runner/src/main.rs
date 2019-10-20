@@ -109,12 +109,13 @@ fn test_timer() {
 fn test_paging_table() {
     cls();
     serial_println!("Testing: Paging table resolution...");
-    let virt = unsafe { mem::phys_to_virt(0x1000000).unwrap() };
-    serial_println!("Testing 0x1000000 phys to virt: {:x}", virt);
-    assert_eq!(virt, 0xC1000000);
-    let (phys, pte) = unsafe { mem::virt_to_phys(virt).unwrap() };
-    serial_println!("Testing virt back to phys: {:x}", phys);
-    assert_eq!(phys, 0x1000000);
+    let phys = mem::PhysAddr::new(0x1000000);
+    let virt = unsafe { phys.to_virt().unwrap() };
+    serial_println!("Testing {} phys to virt: {}", phys, virt);
+    assert_eq!(*virt.addr(), 0xC1000000);
+    let (phys, pte) = unsafe { virt.to_phys().unwrap() };
+    serial_println!("Testing virt {} back to phys: {}", virt, phys);
+    assert_eq!(*phys.addr(), 0x1000000);
     serial_println!("Testing page table entry attrs: {}", pte);
     assert!(pte.get_bit(mem::BIT_PRESENT));
     assert!(pte.get_bit(mem::BIT_WRITABLE));

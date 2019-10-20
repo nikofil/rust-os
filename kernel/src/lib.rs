@@ -64,7 +64,7 @@ pub fn start() -> ! {
         println!("Entry 0-3: {}", entry03);
         let entry032 = entry03.next_pt().get_entry(2);
         println!("Entry 0-3-2: {}", entry032);
-        println!("addr 0x172d05e00 is: {:x}", mem::virt_to_phys(0x172d05e00).unwrap().0);
+        println!("addr 0x172d05e00 is: {}", mem::VirtAddr::new(0x172d05e00).to_phys().unwrap().0);
     }
     set_color(Color::Green, Color::Black, false);
     println!("I'M STILL ALIVE!!!");
