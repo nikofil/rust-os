@@ -80,11 +80,15 @@ pub fn start(boot_info: &'static BootInformation) -> ! {
 
         let virt = mem::VirtAddr::new(0xB0000000);
         mem::get_page_table().map_virt_to_phys(virt, mem::PhysAddr::new(0xb8000), mem::BIT_WRITABLE | mem::BIT_PRESENT, &mut alloc);
-
-        let virt = mem::VirtAddr::new(0xB0000000);
         let cptr: &mut [u8; 100] = virt.to_ref();
         cptr[0] = 'Z' as u8;
-        loop {}
+        cptr[1] = 15u8;
+
+        let virt = mem::VirtAddr::new(0x60000000);
+        mem::get_page_table().map_virt_to_phys(virt, mem::PhysAddr::new(0), mem::BIT_WRITABLE | mem::BIT_PRESENT | mem::BIT_HUGE, &mut alloc);
+        let cptr: &mut [u8; 1000000000] = virt.to_ref();
+        cptr[0xb8004] = 'Y' as u8;
+        cptr[0xb8005] = 15u8;
     }
     set_color(Color::Green, Color::Black, false);
     println!("I'M STILL ALIVE!!!");

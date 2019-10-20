@@ -9,6 +9,11 @@ edition = "2018"
 "rust-os" = { path = "../kernel", features = ["no-panic-handler"] }
 bootloader = { version = "0.8.0", features = ["map_physical_memory"] }
 x86_64 = "0.7.5"
+spin = "0.5.2"
+
+[dependencies.lazy_static]
+version = "1.0"
+features = ["spin_no_std"]
 
 [package.metadata.bootimage]
 test-args = ["-device", "isa-debug-exit,iobase=0xf4,iosize=0x04", "-serial", "stdio", "-display", "none"]

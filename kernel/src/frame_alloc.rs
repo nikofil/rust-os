@@ -3,7 +3,7 @@ use multiboot2::BootInformation;
 use crate::mem::PhysAddr;
 use crate::mem;
 
-const FRAME_SIZE: usize = 0x1000;
+pub const FRAME_SIZE: usize = 0x1000;
 
 pub trait FrameSingleAllocator {
     unsafe fn allocate(&mut self) -> Option<PhysAddr>;

@@ -121,7 +121,9 @@ impl PageTable {
     }
 }
 
+#[derive(Copy, Clone)]
 pub struct PhysAddr(u64);
+#[derive(Copy, Clone)]
 pub struct VirtAddr(u64);
 
 impl VirtAddr {
