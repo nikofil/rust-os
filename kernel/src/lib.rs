@@ -6,12 +6,14 @@
 
 extern crate x86_64;
 extern crate pc_keyboard;
+extern crate multiboot2;
 
 pub mod vga_buffer;
 pub mod serial_port;
 pub mod interrupts;
 pub mod port;
 pub mod mem;
+pub mod frame_alloc;
 mod gdt;
 
 use vga_buffer::cls;
@@ -24,6 +26,8 @@ use crate::port::init_pics;
 
 #[cfg(not(feature = "no-panic-handler"))]
 use core::panic::PanicInfo;
+use multiboot2::BootInformation;
+use crate::frame_alloc::FrameSingleAllocator;
 
 /// This function is called on panic.
 #[cfg(not(feature = "no-panic-handler"))]
@@ -35,8 +39,8 @@ fn panic(info: &PanicInfo) -> ! {
 
 #[naked]
 #[no_mangle]
-pub extern "C" fn ua64_mode_start() -> ! {
-   unsafe {
+pub extern "C" fn ua64_mode_start(multiboot_info_addr: u64) -> ! {
+    unsafe {
         asm!("\
             mov ax, 0
             mov ss, ax
@@ -46,12 +50,14 @@ pub extern "C" fn ua64_mode_start() -> ! {
             mov gs, ax
         " :::: "intel");
     }
-    start();
+    let boot_info = unsafe{
+        multiboot2::load(mem::PhysAddr::new(multiboot_info_addr).to_virt().unwrap().addr() as usize)
+    };
+    start(boot_info);
 }
 
-pub fn start() -> ! {
+pub fn start(boot_info: &'static BootInformation) -> ! {
     cls();
-    println!("Hello world1!");
     init_gdt();
     setup_idt();
     init_pics();
@@ -65,6 +71,20 @@ pub fn start() -> ! {
         let entry032 = entry03.next_pt().get_entry(2);
         println!("Entry 0-3-2: {}", entry032);
         println!("addr 0x172d05e00 is: {}", mem::VirtAddr::new(0x172d05e00).to_phys().unwrap().0);
+    }
+    println!("kernel end at : {:x}", boot_info.end_address());
+    unsafe {
+        let mut alloc = frame_alloc::SimpleAllocator::new(&boot_info);
+        let p = alloc.allocate().unwrap();
+        println!("GOT PAGE!!! {}", p);
+
+        let virt = mem::VirtAddr::new(0xB0000000);
+        mem::get_page_table().map_virt_to_phys(virt, mem::PhysAddr::new(0xb8000), mem::BIT_WRITABLE | mem::BIT_PRESENT, &mut alloc);
+
+        let virt = mem::VirtAddr::new(0xB0000000);
+        let cptr: &mut [u8; 100] = virt.to_ref();
+        cptr[0] = 'Z' as u8;
+        loop {}
     }
     set_color(Color::Green, Color::Black, false);
     println!("I'M STILL ALIVE!!!");

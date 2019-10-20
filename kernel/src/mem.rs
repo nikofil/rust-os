@@ -1,4 +1,5 @@
 use core::fmt::Display;
+use crate::frame_alloc::FrameSingleAllocator;
 
 const VIRT_OFFSET: u64 = 0xC0000000;
 
@@ -10,40 +11,50 @@ pub struct PageTable {
     entries: [PTEntry; 512],
 }
 
-pub const BIT_PRESENT: usize = 0;
-pub const BIT_WRITABLE: usize = 1;
-pub const BIT_USER: usize = 2;
-pub const BIT_WRITE_THROUGH: usize = 3;
-pub const BIT_NO_CACHE: usize = 4;
-pub const BIT_ACCESSED: usize = 5;
-pub const BIT_DIRTY: usize = 6;
-pub const BIT_HUGE: usize = 7;
-pub const BIT_GLOBAL: usize = 8;
+pub const BIT_PRESENT: u16 = 1;
+pub const BIT_WRITABLE: u16 = 1 << 1;
+pub const BIT_USER: u16 = 1 << 2;
+pub const BIT_WRITE_THROUGH: u16 = 1 << 3;
+pub const BIT_NO_CACHE: u16 = 1 << 4;
+pub const BIT_ACCESSED: u16 = 1 << 5;
+pub const BIT_DIRTY: u16 = 1 << 6;
+pub const BIT_HUGE: u16 = 1 << 7;
+pub const BIT_GLOBAL: u16 = 1 << 8;
 
 impl PTEntry {
-    pub fn get_bit(&self, bit: usize) -> bool {
-        ((self.0 >> bit) & 1) == 1
+    pub fn get_bit(&self, bit: u16) -> bool {
+        (self.0 & (bit as u64)) != 0
     }
 
-    pub fn set_bit(&mut self, bit: usize, v: bool) {
-        if ((self.0  & (1 << bit)) != 0) != v {
-            self.0 ^= 1 << bit;
+    pub fn set_opts(&mut self, options: u16) {
+        let val = (self.0 >> 9) << 9;
+        self.0 = val | options as u64;
+    }
+
+    pub fn set_bit(&mut self, bit: u16, v: bool) {
+        if ((self.0  & (bit as u64)) != 0) != v {
+            self.0 ^= bit as u64;
         }
     }
 
-    pub fn phys_addr(&self) -> u64 {
-        self.0 & (((1 << 40) - 1) << 12)
+    pub fn set_phys_addr(&mut self, addr: PhysAddr) {
+        let val = self.0 & ((1 << 9) - 1);
+        self.0 = addr.addr() | val;
+    }
+
+    pub fn phys_addr(&self) -> PhysAddr {
+        PhysAddr::new(self.0 & (((1 << 40) - 1) << 12))
     }
 
     pub unsafe fn next_pt(&self) -> &'static mut PageTable {
-        &mut *((self.phys_addr() + VIRT_OFFSET) as *mut PageTable)
+        self.phys_addr().to_virt().unwrap().to_ref::<PageTable>()
     }
 }
 
 impl Display for PTEntry {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         if self.get_bit(BIT_PRESENT) {
-            let res = write!(f, "{:x}", self.phys_addr());
+            let res = write!(f, "{}", self.phys_addr());
             if self.get_bit(BIT_WRITABLE) { write!(f, " writable").unwrap(); }
             if self.get_bit(BIT_USER) { write!(f, " user").unwrap(); }
             if self.get_bit(BIT_WRITE_THROUGH) { write!(f, " write_through").unwrap(); }
@@ -68,6 +79,45 @@ pub unsafe fn get_page_table() -> &'static mut PageTable {
 impl PageTable {
     pub fn get_entry(&mut self, i: usize) -> &mut PTEntry {
         &mut self.entries[i]
+    }
+    pub unsafe fn map_virt_to_phys(&mut self, virt: VirtAddr, phys: PhysAddr, create_options: u16,
+    allocator: &mut dyn FrameSingleAllocator) -> &'static PTEntry {
+        let create_huge = (create_options & BIT_HUGE) != 0;
+        let p4_off = (virt.addr() >> 39) & 0b1_1111_1111;
+        let pte = self.get_entry(p4_off as usize);
+        if !pte.get_bit(BIT_PRESENT) {
+            let new_frame = allocator.allocate().expect("Could not allocate!");
+            pte.set_phys_addr(new_frame);
+            pte.set_bit(BIT_PRESENT, true);
+            pte.set_bit(BIT_WRITABLE, true);
+        }
+        let p3_off = (virt.addr() >> 30) & 0b1_1111_1111;
+        let pte = pte.next_pt().get_entry(p3_off as usize);
+        if !pte.get_bit(BIT_PRESENT) || pte.get_bit(BIT_HUGE) {
+            let new_frame = allocator.allocate().expect("Could not allocate!");
+            pte.set_phys_addr(new_frame);
+            pte.set_bit(BIT_PRESENT, true);
+            pte.set_bit(BIT_WRITABLE, true);
+        }
+        let p2_off = (virt.addr() >> 21) & 0b1_1111_1111;
+        let pte = pte.next_pt().get_entry(p2_off as usize);
+        if !pte.get_bit(BIT_PRESENT) || pte.get_bit(BIT_HUGE) {
+            if create_huge {
+                pte.set_phys_addr(phys);
+                pte.set_opts(create_options);
+                return pte
+            } else {
+                let new_frame = allocator.allocate().expect("Could not allocate!");
+                pte.set_phys_addr(new_frame);
+                pte.set_bit(BIT_PRESENT, true);
+                pte.set_bit(BIT_WRITABLE, true);
+            }
+        }
+        let p1_off = (virt.addr() >> 12) & 0b1_1111_1111;
+        let pte = pte.next_pt().get_entry(p1_off as usize);
+        pte.set_phys_addr(phys);
+        pte.set_opts(create_options);
+        return pte
     }
 }
 
@@ -95,7 +145,7 @@ impl VirtAddr {
             return None
         } else if pte.get_bit(BIT_HUGE) {
             let page_off = self.0 & 0x3fffffff; // 1 GiB huge page
-            return Some((PhysAddr::new(pte.phys_addr() + page_off), &*pte))
+            return Some((pte.phys_addr().offset(page_off), &*pte))
         }
         let p2_off = (self.0 >> 21) & 0b1_1111_1111;
         let pte = pte.next_pt().get_entry(p2_off as usize);
@@ -103,7 +153,7 @@ impl VirtAddr {
             return None
         } else if pte.get_bit(BIT_HUGE) {
             let page_off = self.0 & 0x1fffff; // 2 MiB huge page
-            return Some((PhysAddr::new(pte.phys_addr() + page_off), &*pte))
+            return Some((pte.phys_addr().offset(page_off), &*pte))
         }
         let p1_off = (self.0 >> 12) & 0b1_1111_1111;
         let pte = pte.next_pt().get_entry(p1_off as usize);
@@ -111,12 +161,12 @@ impl VirtAddr {
             return None
         } else {
             let page_off = self.0 & 0xfff; // normal page
-            return Some((PhysAddr::new(pte.phys_addr() + page_off), &*pte))
+            return Some((pte.phys_addr().offset(page_off), &*pte))
         }
     }
 
-    pub fn addr(&self) -> &u64 {
-        &self.0
+    pub fn addr(&self) -> u64 {
+        self.0
     }
 }
 
@@ -133,8 +183,12 @@ impl PhysAddr {
         }
     }
 
-    pub fn addr(&self) -> &u64 {
-        &self.0
+    pub fn addr(&self) -> u64 {
+        self.0
+    }
+
+    pub fn offset(&self, offset: u64) -> PhysAddr {
+        PhysAddr::new(self.0 + offset)
     }
 }
 

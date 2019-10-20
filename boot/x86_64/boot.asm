@@ -18,6 +18,7 @@ bits 32
 
 _start:
     mov esp, _stack_top_low
+    push ebx
     call _multiboot_check
     call _cpuid_check
     call _long_mode_check
@@ -25,6 +26,7 @@ _start:
     call _enable_paging
     mov eax, _gdt64_pointer_low
     lgdt [eax]
+    pop ebx
     call _ua64_mode_entry
 
 _boot_error:
@@ -167,7 +169,8 @@ _ua64_mode_entry:
     jmp eax
     _ua64_mode_entry_high:
     mov dword [_p3_table], 0
-    jmp _gdt64_code_off:ua64_mode_start ;  + 0xC0000000
+    mov edi, ebx
+    jmp _gdt64_code_off:ua64_mode_start
 
 section .rodata
 gdt64:
