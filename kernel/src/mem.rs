@@ -2,6 +2,8 @@ use core::fmt::Display;
 use crate::frame_alloc::FrameSingleAllocator;
 
 const VIRT_OFFSET: u64 = 0xC0000000;
+pub const FRAME_SIZE: u64 = 0x1000;
+
 
 #[repr(C)]
 pub struct PTEntry(u64);
@@ -43,7 +45,7 @@ impl PTEntry {
     }
 
     pub fn phys_addr(&self) -> PhysAddr {
-        PhysAddr::new(self.0 & (((1 << 40) - 1) << 12))
+        PhysAddr::new(self.0 & (((1 << 40) - 1) * FRAME_SIZE))
     }
 
     pub unsafe fn next_pt(&self) -> &'static mut PageTable {
@@ -113,7 +115,7 @@ impl PageTable {
                 pte.set_bit(BIT_WRITABLE, true);
             }
         }
-        let p1_off = (virt.addr() >> 12) & 0b1_1111_1111;
+        let p1_off = (virt.addr() / FRAME_SIZE) & 0b1_1111_1111;
         let pte = pte.next_pt().get_entry(p1_off as usize);
         pte.set_phys_addr(phys);
         pte.set_opts(create_options);
@@ -157,7 +159,7 @@ impl VirtAddr {
             let page_off = self.0 & 0x1fffff; // 2 MiB huge page
             return Some((pte.phys_addr().offset(page_off), &*pte))
         }
-        let p1_off = (self.0 >> 12) & 0b1_1111_1111;
+        let p1_off = (self.0 / FRAME_SIZE) & 0b1_1111_1111;
         let pte = pte.next_pt().get_entry(p1_off as usize);
         if !pte.get_bit(BIT_PRESENT) {
             return None

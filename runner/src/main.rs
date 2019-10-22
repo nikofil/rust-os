@@ -140,7 +140,7 @@ struct DummyFrameAllocator(u64, u64);
 impl frame_alloc::FrameSingleAllocator for DummyFrameAllocator {
     unsafe fn allocate(&mut self) -> Option<mem::PhysAddr> {
         if self.0 < self.1 {
-            let phys = mem::PhysAddr::new(self.0 * frame_alloc::FRAME_SIZE as u64);
+            let phys = mem::PhysAddr::new(self.0 * mem::FRAME_SIZE as u64);
             serial_println!("Allocated frame #{} ({})", self.0, phys);
             self.0 += 1;
             Some(phys)
