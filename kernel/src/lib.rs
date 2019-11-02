@@ -5,32 +5,32 @@
 #![feature(abi_x86_interrupt)]
 #![feature(alloc_error_handler)]
 
-extern crate x86_64;
-extern crate pc_keyboard;
-extern crate multiboot2;
 extern crate alloc;
+extern crate multiboot2;
+extern crate pc_keyboard;
+extern crate x86_64;
 
-pub mod vga_buffer;
-pub mod serial_port;
-pub mod interrupts;
-pub mod port;
-pub mod mem;
 pub mod frame_alloc;
-mod global_alloc;
 mod gdt;
+mod global_alloc;
+pub mod interrupts;
+pub mod mem;
+pub mod port;
+pub mod serial_port;
+pub mod vga_buffer;
 
-use vga_buffer::cls;
-use interrupts::setup_idt;
 use gdt::init_gdt;
+use interrupts::setup_idt;
+use vga_buffer::cls;
 
+use crate::port::init_pics;
 use crate::vga_buffer::set_color;
 use crate::vga_buffer::Color;
-use crate::port::init_pics;
 
+use alloc::boxed::Box;
 #[cfg(not(feature = "no-panic-handler"))]
 use core::panic::PanicInfo;
 use multiboot2::BootInformation;
-use alloc::boxed::Box;
 
 #[global_allocator]
 static ALLOCATOR: global_alloc::Allocator = global_alloc::Allocator;
@@ -61,8 +61,13 @@ pub extern "C" fn ua64_mode_start(multiboot_info_addr: u64) -> ! {
             mov gs, ax
         " :::: "intel");
     }
-    let boot_info = unsafe{
-        multiboot2::load(mem::PhysAddr::new(multiboot_info_addr).to_virt().unwrap().addr() as usize)
+    let boot_info = unsafe {
+        multiboot2::load(
+            mem::PhysAddr::new(multiboot_info_addr)
+                .to_virt()
+                .unwrap()
+                .addr() as usize,
+        )
     };
     start(boot_info);
 }
@@ -81,7 +86,10 @@ pub fn start(boot_info: &'static BootInformation) -> ! {
         println!("Entry 0-3: {}", entry03);
         let entry032 = entry03.next_pt().get_entry(2);
         println!("Entry 0-3-2: {}", entry032);
-        println!("addr 0x172d05e00 is: {}", mem::VirtAddr::new(0x172d05e00).to_phys().unwrap().0);
+        println!(
+            "addr 0x172d05e00 is: {}",
+            mem::VirtAddr::new(0x172d05e00).to_phys().unwrap().0
+        );
     }
     println!("Kernel end at: {:x}", boot_info.end_address());
     unsafe {

@@ -1,14 +1,11 @@
+use crate::mem;
 use core::fmt;
 use lazy_static::lazy_static;
 use spin::Mutex;
-use crate::mem;
 
 lazy_static! {
-    pub static ref WRITER: Mutex<ScreenWriter> = Mutex::new(
-        ScreenWriter::new(
-            mem::PhysAddr::new(0xb8000)
-        )
-    );
+    pub static ref WRITER: Mutex<ScreenWriter> =
+        Mutex::new(ScreenWriter::new(mem::PhysAddr::new(0xb8000)));
 }
 
 #[macro_export]
@@ -35,9 +32,11 @@ pub fn set_color(fg: Color, bg: Color, blink: bool) {
     });
 }
 
-pub fn  _print(args: fmt::Arguments) {
+pub fn _print(args: fmt::Arguments) {
     use core::fmt::Write;
-    WRITER.try_lock().map(|mut lock| lock.write_fmt(args).unwrap());
+    WRITER
+        .try_lock()
+        .map(|mut lock| lock.write_fmt(args).unwrap());
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -88,16 +87,14 @@ pub struct ScreenWriter {
 
 #[allow(dead_code)]
 impl ScreenWriter {
-     pub fn new(phys_addr: mem::PhysAddr) -> ScreenWriter {
+    pub fn new(phys_addr: mem::PhysAddr) -> ScreenWriter {
         ScreenWriter {
             col: 0,
-            row: BUFFER_HEIGHT-1,
+            row: BUFFER_HEIGHT - 1,
             fg_color: Color::White,
             bg_color: Color::Black,
             blink: false,
-            buffer: unsafe {
-                phys_addr.to_virt().unwrap().to_ref()
-            },
+            buffer: unsafe { phys_addr.to_virt().unwrap().to_ref() },
         }
     }
 
@@ -107,9 +104,12 @@ impl ScreenWriter {
             b => {
                 let fg_u4 = self.fg_color as u8 & 0b1111;
                 let bg_u3 = self.bg_color as u8 & 0b1111;
-                let blink = if self.blink {1} else {0};
+                let blink = if self.blink { 1 } else { 0 };
                 let color_code: u8 = fg_u4 | bg_u3 << 4 | blink << 7;
-                self.buffer.chars[self.row][self.col] = ScreenChar{ chr: b, color: color_code };
+                self.buffer.chars[self.row][self.col] = ScreenChar {
+                    chr: b,
+                    color: color_code,
+                };
                 self.col += 1;
                 if self.col == BUFFER_WIDTH {
                     self.new_line();
@@ -119,12 +119,12 @@ impl ScreenWriter {
     }
 
     pub fn new_line(&mut self) {
-        for r in 0..BUFFER_HEIGHT-1 {
-           for c in 0..BUFFER_WIDTH {
-               self.buffer.chars[r][c] = self.buffer.chars[r+1][c];
-           }
+        for r in 0..BUFFER_HEIGHT - 1 {
+            for c in 0..BUFFER_WIDTH {
+                self.buffer.chars[r][c] = self.buffer.chars[r + 1][c];
+            }
         }
-        self.clear_line(BUFFER_HEIGHT-1);
+        self.clear_line(BUFFER_HEIGHT - 1);
         self.col = 0;
     }
 
@@ -135,7 +135,10 @@ impl ScreenWriter {
     }
 
     pub fn clear_line(&mut self, line: usize) {
-        self.buffer.chars[line] = [ScreenChar{chr: b' ', color: 0}; BUFFER_WIDTH];
+        self.buffer.chars[line] = [ScreenChar {
+            chr: b' ',
+            color: 0,
+        }; BUFFER_WIDTH];
     }
 
     pub fn set_fg(&mut self, color: Color) {
@@ -152,7 +155,10 @@ impl ScreenWriter {
 
     pub fn get_line(&self, line: usize) -> [u8; BUFFER_WIDTH] {
         let mut line_buf = [0 as u8; BUFFER_WIDTH];
-        for (i, c) in self.buffer.chars[BUFFER_HEIGHT-1-line].iter().enumerate() {
+        for (i, c) in self.buffer.chars[BUFFER_HEIGHT - 1 - line]
+            .iter()
+            .enumerate()
+        {
             line_buf[i] = c.chr;
         }
         line_buf
@@ -162,6 +168,6 @@ impl ScreenWriter {
 impl fmt::Write for ScreenWriter {
     fn write_str(&mut self, s: &str) -> Result<(), fmt::Error> {
         s.chars().for_each(|c| self.write(c as u8));
-        return Ok(())
+        return Ok(());
     }
 }

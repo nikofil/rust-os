@@ -1,5 +1,5 @@
-use core::marker::PhantomData;
 use crate::println;
+use core::marker::PhantomData;
 
 pub trait InOut {
     unsafe fn port_in(port: u16) -> Self;
@@ -42,12 +42,18 @@ impl InOut for u32 {
     }
 }
 
-pub struct Port<T> where T: InOut {
+pub struct Port<T>
+where
+    T: InOut,
+{
     port: u16,
     pt: PhantomData<T>,
 }
 
-impl<T> Port<T> where T: InOut {
+impl<T> Port<T>
+where
+    T: InOut,
+{
     pub fn new(port: u16) -> Port<T> {
         Port {
             port,
@@ -56,7 +62,9 @@ impl<T> Port<T> where T: InOut {
     }
 
     pub fn write(&self, val: T) {
-        unsafe { T::port_out(self.port, val); }
+        unsafe {
+            T::port_out(self.port, val);
+        }
     }
 
     pub fn read(&self) -> T {
@@ -83,7 +91,7 @@ pub fn init_pics() {
     let slave_cmd: Port<u8> = Port::new(PIC_SLAVE_PORT);
     let slave_data: Port<u8> = Port::new(PIC_SLAVE_PORT + 1);
     let wait_port: Port<u8> = Port::new(WAIT_PORT);
-    let wait = || { wait_port.write(0) };
+    let wait = || wait_port.write(0);
 
     // save interrupt masks
     let a1 = master_data.read();
@@ -92,9 +100,9 @@ pub fn init_pics() {
     println!(" - PIC interrupt masks: master {} slave {}", a1, a2);
 
     // begin initialization
-    master_cmd.write(ICW1_INIT+ICW1_ICW4);
+    master_cmd.write(ICW1_INIT + ICW1_ICW4);
     wait();
-    slave_cmd.write(ICW1_INIT+ICW1_ICW4);
+    slave_cmd.write(ICW1_INIT + ICW1_ICW4);
     wait();
 
     // set interrupt offsets

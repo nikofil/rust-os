@@ -7,19 +7,19 @@
 #![test_runner(crate::test_runner)]
 #![reexport_test_harness_main = "test_main"]
 
-#[allow(unused_imports)]
-use rust_os::{println, serial_println};
-use rust_os::vga_buffer::{WRITER, cls};
+use bootloader::bootinfo::MemoryRegionType;
+use bootloader::BootInfo;
+use core::panic::PanicInfo;
+use lazy_static::lazy_static;
+use rust_os::frame_alloc;
 use rust_os::interrupts::setup_idt;
 use rust_os::mem;
-use rust_os::frame_alloc;
-use x86_64::instructions::port::Port;
-use core::panic::PanicInfo;
 use rust_os::port::init_pics;
-use lazy_static::lazy_static;
-use bootloader::BootInfo;
-use bootloader::bootinfo::MemoryRegionType;
+use rust_os::vga_buffer::{cls, WRITER};
+#[allow(unused_imports)]
+use rust_os::{println, serial_println};
 use spin::Mutex;
+use x86_64::instructions::port::Port;
 
 lazy_static! {
     static ref BOOT_INFO: Mutex<Option<&'static BootInfo>> = Mutex::new(None);
@@ -75,7 +75,10 @@ fn test_vga_out() {
     }
     let line = WRITER.lock().get_line(1);
     assert_eq!(&line[0..10], "output 199".as_bytes());
-    serial_println!("Last output: {} == 'output 199'", core::str::from_utf8(&line[0..10]).unwrap());
+    serial_println!(
+        "Last output: {} == 'output 199'",
+        core::str::from_utf8(&line[0..10]).unwrap()
+    );
     serial_println!("Ok");
 }
 
@@ -113,7 +116,10 @@ fn test_timer() {
     for _ in 0..1000000 {}
     let line = WRITER.lock().get_line(0);
     assert!(line.contains(&('.' as u8)));
-    serial_println!("Line has dots after some time: {}", core::str::from_utf8(&line).unwrap());
+    serial_println!(
+        "Line has dots after some time: {}",
+        core::str::from_utf8(&line).unwrap()
+    );
     serial_println!("Ok");
 }
 
@@ -161,17 +167,21 @@ fn test_frame_allocation() {
         .rev()
         .find(|region| region.region_type == MemoryRegionType::Usable)
         .unwrap();
-    let mut allocator = DummyFrameAllocator(frame_range.range.start_frame_number, frame_range.range.end_frame_number);
+    let mut allocator = DummyFrameAllocator(
+        frame_range.range.start_frame_number,
+        frame_range.range.end_frame_number,
+    );
 
     let virt = mem::VirtAddr::new(0xB0000000);
     let phys = mem::PhysAddr::new(0xb8000);
     unsafe {
         serial_println!("Mapping physical frame {} to virtual {}", phys, virt);
-        let pte = mem::get_page_table()
-            .map_virt_to_phys(virt,
+        let pte = mem::get_page_table().map_virt_to_phys(
+            virt,
             phys,
             mem::BIT_WRITABLE | mem::BIT_PRESENT,
-            &mut allocator);
+            &mut allocator,
+        );
         serial_println!("Mapping written in PT entry at addr {:p}: {}", pte, pte);
         serial_println!("Writing 'X' to virtual {}", virt);
         let cptr: &mut [u8; 100] = virt.to_ref();
@@ -180,7 +190,10 @@ fn test_frame_allocation() {
     }
     let line = WRITER.lock().get_line(19);
     assert_eq!(line[0], 'X' as u8);
-    serial_println!("VGA buffer: {}", core::str::from_utf8(&line[0..10]).unwrap());
+    serial_println!(
+        "VGA buffer: {}",
+        core::str::from_utf8(&line[0..10]).unwrap()
+    );
 
     serial_println!("Ok");
 }

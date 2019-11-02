@@ -1,9 +1,8 @@
-use core::fmt::Display;
 use crate::frame_alloc::FrameSingleAllocator;
+use core::fmt::Display;
 
 const VIRT_OFFSET: u64 = 0xC0000000;
 pub const FRAME_SIZE: u64 = 0x1000;
-
 
 #[repr(C)]
 pub struct PTEntry(u64);
@@ -34,7 +33,7 @@ impl PTEntry {
     }
 
     pub fn set_bit(&mut self, bit: u16, v: bool) {
-        if ((self.0  & (bit as u64)) != 0) != v {
+        if ((self.0 & (bit as u64)) != 0) != v {
             self.0 ^= bit as u64;
         }
     }
@@ -57,14 +56,30 @@ impl Display for PTEntry {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         if self.get_bit(BIT_PRESENT) {
             let res = write!(f, "{}", self.phys_addr());
-            if self.get_bit(BIT_WRITABLE) { write!(f, " writable").unwrap(); }
-            if self.get_bit(BIT_USER) { write!(f, " user").unwrap(); }
-            if self.get_bit(BIT_WRITE_THROUGH) { write!(f, " write_through").unwrap(); }
-            if self.get_bit(BIT_NO_CACHE) { write!(f, " no_cache").unwrap(); }
-            if self.get_bit(BIT_ACCESSED) { write!(f, " accessed").unwrap(); }
-            if self.get_bit(BIT_DIRTY) { write!(f, " dirty").unwrap(); }
-            if self.get_bit(BIT_HUGE) { write!(f, " huge").unwrap(); }
-            if self.get_bit(BIT_GLOBAL) { write!(f, " global").unwrap(); }
+            if self.get_bit(BIT_WRITABLE) {
+                write!(f, " writable").unwrap();
+            }
+            if self.get_bit(BIT_USER) {
+                write!(f, " user").unwrap();
+            }
+            if self.get_bit(BIT_WRITE_THROUGH) {
+                write!(f, " write_through").unwrap();
+            }
+            if self.get_bit(BIT_NO_CACHE) {
+                write!(f, " no_cache").unwrap();
+            }
+            if self.get_bit(BIT_ACCESSED) {
+                write!(f, " accessed").unwrap();
+            }
+            if self.get_bit(BIT_DIRTY) {
+                write!(f, " dirty").unwrap();
+            }
+            if self.get_bit(BIT_HUGE) {
+                write!(f, " huge").unwrap();
+            }
+            if self.get_bit(BIT_GLOBAL) {
+                write!(f, " global").unwrap();
+            }
             res
         } else {
             write!(f, "<not present>")
@@ -82,8 +97,13 @@ impl PageTable {
     pub fn get_entry(&mut self, i: usize) -> &mut PTEntry {
         &mut self.entries[i]
     }
-    pub unsafe fn map_virt_to_phys(&mut self, virt: VirtAddr, phys: PhysAddr, create_options: u16,
-    allocator: &mut dyn FrameSingleAllocator) -> &'static PTEntry {
+    pub unsafe fn map_virt_to_phys(
+        &mut self,
+        virt: VirtAddr,
+        phys: PhysAddr,
+        create_options: u16,
+        allocator: &mut dyn FrameSingleAllocator,
+    ) -> &'static PTEntry {
         let create_huge = (create_options & BIT_HUGE) != 0;
         let p4_off = (virt.addr() >> 39) & 0b1_1111_1111;
         let pte = self.get_entry(p4_off as usize);
@@ -107,7 +127,7 @@ impl PageTable {
             if create_huge {
                 pte.set_phys_addr(phys);
                 pte.set_opts(create_options);
-                return pte
+                return pte;
             } else {
                 let new_frame = allocator.allocate().expect("Could not allocate!");
                 pte.set_phys_addr(new_frame);
@@ -119,7 +139,7 @@ impl PageTable {
         let pte = pte.next_pt().get_entry(p1_off as usize);
         pte.set_phys_addr(phys);
         pte.set_opts(create_options);
-        return pte
+        return pte;
     }
 }
 
@@ -141,31 +161,31 @@ impl VirtAddr {
         let p4_off = (self.0 >> 39) & 0b1_1111_1111;
         let pte = get_page_table().get_entry(p4_off as usize);
         if !pte.get_bit(BIT_PRESENT) {
-            return None
+            return None;
         }
         let p3_off = (self.0 >> 30) & 0b1_1111_1111;
         let pte = pte.next_pt().get_entry(p3_off as usize);
         if !pte.get_bit(BIT_PRESENT) {
-            return None
+            return None;
         } else if pte.get_bit(BIT_HUGE) {
             let page_off = self.0 & 0x3fffffff; // 1 GiB huge page
-            return Some((pte.phys_addr().offset(page_off), &*pte))
+            return Some((pte.phys_addr().offset(page_off), &*pte));
         }
         let p2_off = (self.0 >> 21) & 0b1_1111_1111;
         let pte = pte.next_pt().get_entry(p2_off as usize);
         if !pte.get_bit(BIT_PRESENT) {
-            return None
+            return None;
         } else if pte.get_bit(BIT_HUGE) {
             let page_off = self.0 & 0x1fffff; // 2 MiB huge page
-            return Some((pte.phys_addr().offset(page_off), &*pte))
+            return Some((pte.phys_addr().offset(page_off), &*pte));
         }
         let p1_off = (self.0 / FRAME_SIZE) & 0b1_1111_1111;
         let pte = pte.next_pt().get_entry(p1_off as usize);
         if !pte.get_bit(BIT_PRESENT) {
-            return None
+            return None;
         } else {
             let page_off = self.0 & 0xfff; // normal page
-            return Some((pte.phys_addr().offset(page_off), &*pte))
+            return Some((pte.phys_addr().offset(page_off), &*pte));
         }
     }
 

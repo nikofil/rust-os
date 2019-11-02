@@ -1,10 +1,10 @@
 use crate::println;
 use lazy_static::lazy_static;
-use x86_64::VirtAddr;
-use x86_64::structures::tss::TaskStateSegment;
-use x86_64::structures::gdt::{GlobalDescriptorTable, SegmentSelector, Descriptor};
 use x86_64::instructions::segmentation::set_cs;
 use x86_64::instructions::tables::load_tss;
+use x86_64::structures::gdt::{Descriptor, GlobalDescriptorTable, SegmentSelector};
+use x86_64::structures::tss::TaskStateSegment;
+use x86_64::VirtAddr;
 
 pub const DOUBLE_FAULT_IST_INDEX: u8 = 0;
 const STACK_SIZE: usize = 4096;
@@ -34,12 +34,10 @@ lazy_static! {
 pub fn init_gdt() {
     GDT.0.load();
     let stack = unsafe { &STACK as *const _ };
-    println!(" - Loaded GDT: {:p} TSS: {:p} Stack {:p} CS segment: {} TSS segment: {}",
-        &GDT.0 as *const _,
-        &*TSS as *const _,
-        stack,
-        GDT.1[0].0,
-        GDT.1[1].0);
+    println!(
+        " - Loaded GDT: {:p} TSS: {:p} Stack {:p} CS segment: {} TSS segment: {}",
+        &GDT.0 as *const _, &*TSS as *const _, stack, GDT.1[0].0, GDT.1[1].0
+    );
     unsafe {
         set_cs(GDT.1[0]);
         load_tss(GDT.1[1]);

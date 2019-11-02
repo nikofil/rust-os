@@ -1,10 +1,10 @@
-use alloc::alloc::{GlobalAlloc, Layout};
-use core::ptr::null_mut;
-use lazy_static::lazy_static;
-use alloc::vec::Vec;
-use spin::Mutex;
 use crate::frame_alloc::FrameSingleAllocator;
 use crate::mem::PhysAddr;
+use alloc::alloc::{GlobalAlloc, Layout};
+use alloc::vec::Vec;
+use core::ptr::null_mut;
+use lazy_static::lazy_static;
+use spin::Mutex;
 
 struct AllocatorInfo {
     frame_allocator: Mutex<Option<&'static mut dyn FrameSingleAllocator>>,
@@ -48,5 +48,8 @@ unsafe impl GlobalAlloc for Allocator {
 
 pub fn init_global_alloc(frame_alloc: &'static mut dyn FrameSingleAllocator) {
     ALLOCATOR_INFO.frame_allocator.lock().replace(frame_alloc);
-    ALLOCATOR_INFO.free_frames.lock().replace(Vec::with_capacity(0));
+    ALLOCATOR_INFO
+        .free_frames
+        .lock()
+        .replace(Vec::with_capacity(0));
 }
