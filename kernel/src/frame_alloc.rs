@@ -17,7 +17,7 @@ pub struct SimpleAllocator {
     next_page: usize,     // next page no. in this area to return
 }
 
-unsafe impl core::marker::Send for SimpleAllocator {} // shh it's ok we only access this from a thread-safe struct
+unsafe impl core::marker::Send for SimpleAllocator {} // shh it's ok pointers are thread-safe
 
 impl SimpleAllocator {
     pub unsafe fn new(boot_info: &BootInformation) -> SimpleAllocator {

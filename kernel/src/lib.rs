@@ -9,7 +9,6 @@ extern crate alloc;
 extern crate multiboot2;
 extern crate pc_keyboard;
 extern crate x86_64;
-extern crate if_chain;
 
 pub mod frame_alloc;
 mod gdt;
@@ -32,7 +31,6 @@ use alloc::boxed::Box;
 #[cfg(not(feature = "no-panic-handler"))]
 use core::panic::PanicInfo;
 use multiboot2::BootInformation;
-use alloc::vec::Vec;
 
 #[global_allocator]
 static ALLOCATOR: global_alloc::Allocator = global_alloc::Allocator;
@@ -78,26 +76,34 @@ pub fn start(boot_info: &'static BootInformation) -> ! {
     cls();
     init_gdt();
     setup_idt();
-    // init_pics();
+    init_pics();
+    unsafe {
+        let pt = mem::get_page_table();
+        println!("Page table: {:p}", pt);
+        let entry0 = pt.get_entry(0);
+        println!("Entry 0: {}", entry0);
+        let entry03 = entry0.next_pt().get_entry(3);
+        println!("Entry 0-3: {}", entry03);
+        let entry032 = entry03.next_pt().get_entry(2);
+        println!("Entry 0-3-2: {}", entry032);
+        println!(
+            "addr 0x172d05e00 is: {}",
+            mem::VirtAddr::new(0x172d05e00).to_phys().unwrap().0
+        );
+    }
+    println!("Kernel end at: {:x}", boot_info.end_address());
     unsafe {
         let alloc = frame_alloc::SimpleAllocator::new(&boot_info);
         frame_alloc::BOOTINFO_ALLOCATOR.replace(alloc);
         global_alloc::init_global_alloc(frame_alloc::BOOTINFO_ALLOCATOR.as_mut().unwrap());
-        {
-            println!("Before first Vec");
-            let mut x: Vec<u8> = Vec::new();
-            x.push(123);
-            println!("{}", x[0]);
-        }
-        {
-            println!("Before second Vec");
-            let mut x: Vec<u8> = Vec::new();
-            x.push(123);
-            println!("{}", x[0]);
-        }
-        println!("After second Vec");
+
+        let x = Box::new(123);
+        println!("BOX IS HERE: {:?}", x);
+        drop(x);
+        println!("BOX IS NOT HERE ANYMORE :<");
     }
     set_color(Color::Green, Color::Black, false);
+    println!("I'M STILL ALIVE!!!");
     loop {
         x86_64::instructions::hlt();
     }

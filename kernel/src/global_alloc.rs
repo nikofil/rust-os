@@ -24,21 +24,31 @@ lazy_static! {
 unsafe impl GlobalAlloc for Allocator {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         if_chain! {
+            // try locking the free_frames mutex (this locking fails when dealloc needs to allocate
+            // more space for its Vec and calls this as it already holds this lock!)
             if let Some(ref mut x) = ALLOCATOR_INFO.free_frames.try_lock();
+            // get as mutable
             if let Some(ref mut free) = x.as_mut();
+            // get last page (if it exists)
             if let Some(page) = free.pop();
+            // if a page exists
             if let Some(virt) = page.to_virt();
+            // return the page
             then {
-                crate::println!("Reusing! ^_^ {:x}", page.addr());
+                crate::println!("* Reusing! ^_^ {:x}", virt.addr());
                 return virt.to_ref();
             }
         }
         if_chain! {
+            // lock the frame allocator
             if let Some(ref mut allocator) = ALLOCATOR_INFO.frame_allocator.lock().as_mut();
+            // get a physical page from it
             if let Some(page) = allocator.allocate();
+            // convert it to virtual (add 0xC0000000)
             if let Some(virt) = page.to_virt();
+            // return the page
             then {
-                crate::println!("Allocated! ^_^ {:x}", virt.addr());
+                crate::println!("* Allocated! ^_^ {:x}", virt.addr());
                 return virt.to_ref();
             }
         }
@@ -46,13 +56,18 @@ unsafe impl GlobalAlloc for Allocator {
     }
 
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
-        crate::println!("Deallocating: {:x}", ptr as u64);
-        if let Some((phys_addr, _)) = VirtAddr::new(ptr as u64).to_phys() {
-            if let Some(ref mut free) = ALLOCATOR_INFO.free_frames.lock().as_mut() {
+        crate::println!("* Deallocating: {:x}", ptr as u64);
+        if_chain! {
+            // try converting the deallocated virtual page address to the physical address
+            if let Some((phys_addr, _)) = VirtAddr::new(ptr as u64).to_phys();
+            // lock the free frames list
+            if let Some(ref mut free) = ALLOCATOR_INFO.free_frames.lock().as_mut();
+            // add the physical address to the free frames list
+            then {
                 free.push(phys_addr);
             }
         }
-        crate::println!("Deallocated! v_v {:x}", ptr as u64);
+        crate::println!("* Deallocated! v_v {:x}", ptr as u64);
     }
 }
 
