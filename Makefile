@@ -25,10 +25,10 @@ test:
 	@sed -Ei 's/^(crate-type = ).*/\1["staticlib"]/g' kernel/Cargo.toml
 
 run: $(iso)
-	@qemu-system-x86_64 -m size=1000 -d int --no-reboot -cdrom $(iso)
+	@qemu-system-x86_64 -m size=4000 -d int --no-reboot -cdrom $(iso)
 
 debug: $(iso_debug)
-	@qemu-system-x86_64 -m size=1000 -d int --no-reboot -s -S -cdrom $(iso_debug)
+	@qemu-system-x86_64 -m size=4000 -d int --no-reboot -s -S -cdrom $(iso_debug)
 
 iso: $(iso)
 

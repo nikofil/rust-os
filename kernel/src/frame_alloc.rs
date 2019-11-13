@@ -21,9 +21,7 @@ unsafe impl core::marker::Send for SimpleAllocator {} // shh it's ok we only acc
 
 impl SimpleAllocator {
     pub unsafe fn new(boot_info: &BootInformation) -> SimpleAllocator {
-        let mem_tag = boot_info
-            .memory_map_tag()
-            .expect("Must have memory map tag");
+        let mem_tag = boot_info.memory_map_tag().expect("Must have memory map tag");
         let mut mem_areas = mem_tag.memory_areas();
         let kernel_end = boot_info.end_address() as u64;
         let kernel_end_phys = VirtAddr::new(kernel_end).to_phys().unwrap().0.addr();
@@ -43,10 +41,13 @@ impl SimpleAllocator {
             // get base addr and length for current area
             let base_addr = mem_area.base_addr;
             let area_len = mem_area.length;
-            let mem_start = max(base_addr, self.kernel_end_phys); // start after kernel end
+            // start after kernel end
+            let mem_start = max(base_addr, self.kernel_end_phys);
             let mem_end = base_addr + area_len;
-            let start_addr = ((mem_start + FRAME_SIZE - 1) / FRAME_SIZE) * FRAME_SIZE; // memory start addr aligned with page size
-            let end_addr = (mem_end / FRAME_SIZE) * FRAME_SIZE; // memory end addr aligned with page size
+            // memory start addr aligned with page size
+            let start_addr = ((mem_start + FRAME_SIZE - 1) / FRAME_SIZE) * FRAME_SIZE;
+            // memory end addr aligned with page size
+            let end_addr = (mem_end / FRAME_SIZE) * FRAME_SIZE;
             self.cur_area = Some((start_addr, end_addr));
         } else {
             self.cur_area = None; // out of mem areas :(
@@ -56,17 +57,17 @@ impl SimpleAllocator {
 
 impl FrameSingleAllocator for SimpleAllocator {
     unsafe fn allocate(&mut self) -> Option<PhysAddr> {
-        let (start_addr, end_addr) = self.cur_area?; // get current area start and end addr if we still have an area left
+        // get current area start and end addr if we still have an area left
+        let (start_addr, end_addr) = self.cur_area?;
         let frame = PhysAddr::new(start_addr + (self.next_page as u64 * FRAME_SIZE));
+        // return a page from this area
         if frame.addr() + (FRAME_SIZE as u64) < end_addr {
-            // return a page from this area
             self.next_page += 1;
-            crate::println!("allocating woo");
+            crate::println!("- Allocated new page");
             Some(frame)
-        } else {
-            // go to next area and try again
+        } else { // go to next area and try again
             self.next_area();
-            crate::println!("woah next area");
+            crate::println!("- Going to next memory area");
             self.allocate()
         }
     }
