@@ -1,6 +1,6 @@
 use crate::frame_alloc::FrameSingleAllocator;
 use crate::mem::{PhysAddr, FRAME_SIZE};
-use crate::println;
+use crate::{print, println};
 use alloc::alloc::{GlobalAlloc, Layout};
 use alloc::vec::Vec;
 use core::cmp;
@@ -34,6 +34,12 @@ impl BuddyAllocatorManager {
         // Therefore we first create it and then we lock the list in order to push the new
         // buddy allocator to the list.
         self.buddy_allocators.write().push(new_buddy_alloc);
+    }
+
+    pub fn print_info(&self) {
+        for (i, ba) in self.buddy_allocators.read().iter().enumerate() {
+            ba.lock().print_info(i);
+        }
     }
 }
 
@@ -157,9 +163,11 @@ impl BuddyAllocator {
         }
     }
 
-    fn print_info(&self) {
+    fn print_info(&self, i: usize) {
+        println!("BA #{}: start {:?} / levels {} / bs {}", i, self.start_addr, self.num_levels, self.block_size);
         for i in 0usize..(self.num_levels as usize + 1) {
-            println!("Level {} has {} free", i, self.free_lists[i].len());
+            print!("  Level {} has {} free /", i, self.free_lists[i].len());
         }
+        println!();
     }
 }

@@ -117,4 +117,9 @@ pub fn init_global_alloc(frame_alloc: &'static mut dyn FrameSingleAllocator) {
         .read()
         .as_ref()
         .map(|x| x.add_memory_area(first_page, FRAME_SIZE * 4, 16));
+    ALLOCATOR_INFO
+        .strategy
+        .read()
+        .as_ref()
+        .map(|x| x.print_info());
 }
