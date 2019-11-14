@@ -21,7 +21,9 @@ unsafe impl core::marker::Send for SimpleAllocator {} // shh it's ok pointers ar
 
 impl SimpleAllocator {
     pub unsafe fn new(boot_info: &BootInformation) -> SimpleAllocator {
-        let mem_tag = boot_info.memory_map_tag().expect("Must have memory map tag");
+        let mem_tag = boot_info
+            .memory_map_tag()
+            .expect("Must have memory map tag");
         let mut mem_areas = mem_tag.memory_areas();
         let kernel_end = boot_info.end_address() as u64;
         let kernel_end_phys = VirtAddr::new(kernel_end).to_phys().unwrap().0.addr();
@@ -65,7 +67,8 @@ impl FrameSingleAllocator for SimpleAllocator {
             self.next_page += 1;
             crate::println!("- Allocated new page");
             Some(frame)
-        } else { // go to next area and try again
+        } else {
+            // go to next area and try again
             self.next_area();
             crate::println!("- Going to next memory area");
             self.allocate()

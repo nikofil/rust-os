@@ -10,6 +10,7 @@ extern crate multiboot2;
 extern crate pc_keyboard;
 extern crate x86_64;
 
+mod buddy_alloc;
 pub mod frame_alloc;
 mod gdt;
 mod global_alloc;
@@ -96,7 +97,6 @@ pub fn start(boot_info: &'static BootInformation) -> ! {
         let alloc = frame_alloc::SimpleAllocator::new(&boot_info);
         frame_alloc::BOOTINFO_ALLOCATOR.replace(alloc);
         global_alloc::init_global_alloc(frame_alloc::BOOTINFO_ALLOCATOR.as_mut().unwrap());
-
         let x = Box::new(123);
         println!("BOX IS HERE: {:?}", x);
         drop(x);
