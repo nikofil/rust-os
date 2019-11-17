@@ -1,7 +1,7 @@
 use crate::mem::{PhysAddr, VirtAddr, FRAME_SIZE};
+use crate::serial_println;
 use core::cmp::max;
 use multiboot2::BootInformation;
-use multiboot2::MemoryArea;
 use multiboot2::MemoryAreaIter;
 
 pub static mut BOOTINFO_ALLOCATOR: Option<SimpleAllocator> = None;
@@ -24,7 +24,7 @@ impl SimpleAllocator {
         let mem_tag = boot_info
             .memory_map_tag()
             .expect("Must have memory map tag");
-        let mut mem_areas = mem_tag.memory_areas();
+        let mem_areas = mem_tag.memory_areas();
         let kernel_end = boot_info.end_address() as u64;
         let kernel_end_phys = VirtAddr::new(kernel_end).to_phys().unwrap().0.addr();
         let mut alloc = SimpleAllocator {
@@ -50,6 +50,12 @@ impl SimpleAllocator {
             let start_addr = ((mem_start + FRAME_SIZE - 1) / FRAME_SIZE) * FRAME_SIZE;
             // memory end addr aligned with page size
             let end_addr = (mem_end / FRAME_SIZE) * FRAME_SIZE;
+            serial_println!(
+                "- FrameAlloc: New area: {:x} to {:x} ({})",
+                start_addr,
+                end_addr,
+                end_addr - start_addr
+            );
             self.cur_area = Some((start_addr, end_addr));
         } else {
             self.cur_area = None; // out of mem areas :(
@@ -65,12 +71,10 @@ impl FrameSingleAllocator for SimpleAllocator {
         // return a page from this area
         if frame.addr() + (FRAME_SIZE as u64) < end_addr {
             self.next_page += 1;
-            crate::println!("- Allocated new page");
             Some(frame)
         } else {
             // go to next area and try again
             self.next_area();
-            crate::println!("- Going to next memory area");
             self.allocate()
         }
     }

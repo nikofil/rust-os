@@ -29,6 +29,7 @@ use crate::vga_buffer::set_color;
 use crate::vga_buffer::Color;
 
 use alloc::boxed::Box;
+use alloc::vec::Vec;
 #[cfg(not(feature = "no-panic-handler"))]
 use core::panic::PanicInfo;
 use multiboot2::BootInformation;
@@ -97,7 +98,7 @@ pub fn start(boot_info: &'static BootInformation) -> ! {
         let alloc = frame_alloc::SimpleAllocator::new(&boot_info);
         frame_alloc::BOOTINFO_ALLOCATOR.replace(alloc);
         global_alloc::init_global_alloc(frame_alloc::BOOTINFO_ALLOCATOR.as_mut().unwrap());
-        let x = Box::new(123);
+        let x = Box::new(Vec::with_capacity(1000000000) as Vec<u8>);
         println!("BOX IS HERE: {:?}", x);
         drop(x);
         println!("BOX IS NOT HERE ANYMORE :<");

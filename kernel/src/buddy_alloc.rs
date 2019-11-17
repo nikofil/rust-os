@@ -1,11 +1,11 @@
-use crate::frame_alloc::FrameSingleAllocator;
-use crate::mem::{PhysAddr, FRAME_SIZE};
-use crate::{print, println};
+use crate::mem::PhysAddr;
+use crate::mem::VirtAddr;
+use crate::serial_println;
 use alloc::alloc::{GlobalAlloc, Layout};
 use alloc::vec::Vec;
 use core::cmp;
+use core::fmt::Display;
 use core::ptr::null_mut;
-use lazy_static::lazy_static;
 use spin::{Mutex, RwLock};
 
 pub struct BuddyAllocatorManager {
@@ -15,19 +15,15 @@ pub struct BuddyAllocatorManager {
 impl BuddyAllocatorManager {
     pub fn new() -> BuddyAllocatorManager {
         // Create an empty buddy allocator list. At this point we're still using the dumb page allocator.
-        let mut buddy_allocators = RwLock::new(Vec::with_capacity(16));
+        let buddy_allocators = RwLock::new(Vec::with_capacity(32));
         BuddyAllocatorManager { buddy_allocators }
     }
 
-    pub fn add_memory_area(&self, start_addr: PhysAddr, size: u64, block_size: u16) {
+    pub fn add_memory_area(&self, start_addr: PhysAddr, end_addr: PhysAddr, block_size: u16) {
         // Add a new buddy allocator to the list with these specs.
         // As each one has some dynamic internal structures, we try to make it so that none of these
         // has to use itself when allocating these.
-        let new_buddy_alloc = Mutex::new(BuddyAllocator::new(
-            start_addr,
-            start_addr.offset(size),
-            block_size,
-        ));
+        let new_buddy_alloc = Mutex::new(BuddyAllocator::new(start_addr, end_addr, block_size));
         // On creation the buddy allocator constructor might lock the list of buddy allocators
         // due to the fact that it allocates memory for its internal structures (except for the very
         // first buddy allocator which still uses the previous, dumb allocator).
@@ -35,24 +31,33 @@ impl BuddyAllocatorManager {
         // buddy allocator to the list.
         self.buddy_allocators.write().push(new_buddy_alloc);
     }
-
-    pub fn print_info(&self) {
-        for (i, ba) in self.buddy_allocators.read().iter().enumerate() {
-            ba.lock().print_info(i);
-        }
-    }
 }
 
 unsafe impl GlobalAlloc for BuddyAllocatorManager {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         // Loop through the list of buddy allocators until we can find one that can give us
         // the requested memory.
-        let allocation = self.buddy_allocators.read().iter().find_map(|allocator| {
-            allocator
-                .try_lock()
-                .and_then(|mut allocator| allocator.alloc(layout.size(), layout.align()))
-        });
-        println!("Our dear allocator gave us a {:x?}", allocation);
+        // TODO alignment
+        let allocation =
+            self.buddy_allocators
+                .read()
+                .iter()
+                .enumerate()
+                .find_map(|(i, allocator)| {
+                    allocator.try_lock().and_then(|mut allocator| {
+                        allocator
+                            .alloc(layout.size(), layout.align())
+                            .map(|allocation| {
+                                serial_println!(
+                                    "- BuddyAllocator #{} allocated {} bytes",
+                                    i,
+                                    layout.size()
+                                );
+                                serial_println!("{}", *allocator);
+                                allocation
+                            })
+                    })
+                });
         // Convert physical address to virtual if we got an allocation, otherwise return null.
         allocation
             .and_then(|phys| phys.to_virt())
@@ -61,8 +66,29 @@ unsafe impl GlobalAlloc for BuddyAllocatorManager {
     }
 
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
-        // println!("I AM DE-ALLOCATING NAO");
-        // TODO
+        // TODO comments
+        // TODO alignment
+        let virt_addr = VirtAddr::new(ptr as u64);
+        if let Some((phys_addr, _)) = virt_addr.to_phys() {
+            for (i, allocator_mtx) in self.buddy_allocators.read().iter().enumerate() {
+                if let Some(mut allocator) = allocator_mtx.try_lock() {
+                    if allocator.contains(phys_addr) {
+                        serial_println!(
+                            "- BuddyAllocator #{} de-allocated {} bytes",
+                            i,
+                            layout.size()
+                        );
+                        serial_println!("{}", *allocator);
+                        allocator.dealloc(phys_addr, layout.size(), layout.align());
+                        return;
+                    }
+                }
+            }
+        }
+        serial_println!(
+            "! Could not de-allocate virtual address: {} / Memory lost",
+            virt_addr
+        );
     }
 }
 
@@ -79,7 +105,7 @@ impl BuddyAllocator {
     fn new(start_addr: PhysAddr, end_addr: PhysAddr, block_size: u16) -> BuddyAllocator {
         // number of levels excluding the leaf level
         let mut num_levels: u8 = 0;
-        while ((block_size << num_levels as u16) as u64) < end_addr.addr() - start_addr.addr() {
+        while ((block_size as u64) << num_levels as u64) < end_addr.addr() - start_addr.addr() {
             num_levels += 1;
         }
         // vector of free lists
@@ -124,10 +150,6 @@ impl BuddyAllocator {
             // ...but not larger than the max level!
             let req_level = cmp::min(next_level - 1, self.num_levels as usize);
             self.get_free_block(req_level).map(|block| {
-                println!(
-                    "Allocated a size {} at level {} number {} (max {})",
-                    size, req_level, block, max_size
-                );
                 // The fn above gives us the index of the block in the given level
                 // so we need to find the size of each block in that level and multiply by the index
                 // to get the offset of the memory that was allocated.
@@ -162,12 +184,23 @@ impl BuddyAllocator {
             })
         }
     }
+}
 
-    fn print_info(&self, i: usize) {
-        println!("BA #{}: start {:?} / levels {} / bs {}", i, self.start_addr, self.num_levels, self.block_size);
+impl Display for BuddyAllocator {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let mut res = writeln!(
+            f,
+            "  Start: {:x?} / End: {:x?} / Levels: {} / Block size: {} / Max alloc: {}",
+            self.start_addr,
+            self.end_addr,
+            self.num_levels + 1,
+            self.block_size,
+            (self.block_size as usize) << (self.num_levels as usize),
+        );
+        res = res.and_then(|_| write!(f, "  Free lists: "));
         for i in 0usize..(self.num_levels as usize + 1) {
-            print!("  Level {} has {} free /", i, self.free_lists[i].len());
+            res = res.and_then(|_| write!(f, "{} in L{} / ", self.free_lists[i].len(), i));
         }
-        println!();
+        res
     }
 }
