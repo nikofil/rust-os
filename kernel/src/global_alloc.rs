@@ -110,12 +110,19 @@ pub fn init_global_alloc(frame_alloc: &'static mut dyn FrameSingleAllocator) {
     // Create a second, larger buddy allocator in our list which is supported by the first one,
     // as described above.
     let frame_alloc = ALLOCATOR_INFO.frame_allocator.lock().take().unwrap();
-    // TODO comments
+    // Get our current buddy allocator
     ALLOCATOR_INFO
         .strategy
         .read()
         .as_ref()
         .map(|buddy_manager| {
+            // Allocate increasingly large memory areas.
+            // The previously created buddy allocator (which uses a single page) will be used to back
+            // the first of these areas' internal structures to avoid the area having to use itself.
+            // Then the first two areas will be used to support the third, etc.
+            // Until we can support 1GiB buddy allocators (the final type) which need a big
+            // amount of continuous backing memory (some MiB for the is_split bitmap plus
+            // several Vecs for the free lists).
             add_mem_area_with_size(buddy_manager, frame_alloc, FRAME_SIZE * 8, 16);
             add_mem_area_with_size(buddy_manager, frame_alloc, FRAME_SIZE * 64, 16);
             add_mem_area_with_size(buddy_manager, frame_alloc, 1 << 24, 16);
@@ -135,9 +142,16 @@ fn add_mem_area_with_size(
     mem_size: u64,
     block_size: u16,
 ) -> bool {
-    // TODO comments
+    // Find and create a buddy allocator with the memory area requested.
+    // We use get_mem_area_with_size first to find the memory area.
+    // That function might instead find one (or two) smaller memory areas if the current
+    // memory block that we're pulling memory from isn't big enough.
+    // In that case add these smaller ones but keep looping until we get a memory block
+    // as big as the one requested.
+    // If we run out of memory, we simply return false.
     loop {
         match get_mem_area_with_size(frame_alloc, mem_size) {
+            // Success! Found a memory area big enough for our purposes.
             MemAreaRequest::Success((mem_start, mem_end)) => {
                 serial_println!(
                     "* Adding requested mem area to BuddyAlloc: {} to {} ({})",
@@ -148,6 +162,7 @@ fn add_mem_area_with_size(
                 buddy_alloc.add_memory_area(mem_start, mem_end, block_size);
                 return true;
             }
+            // Found one or two smaller memory areas instead, insert them and keep looking.
             MemAreaRequest::SmallerThanReq((mem_start, mem_end), second_area) => {
                 buddy_alloc.add_memory_area(mem_start, mem_end, block_size);
                 serial_println!(
@@ -166,6 +181,7 @@ fn add_mem_area_with_size(
                     );
                 }
             }
+            // Ran out of memory! Return false.
             MemAreaRequest::Fail => {
                 serial_println!(
                     "! Failed to find mem area big enough for BuddyAlloc: {}",
@@ -181,10 +197,15 @@ fn get_mem_area_with_size(
     frame_alloc: &mut dyn FrameSingleAllocator,
     mem_size: u64,
 ) -> MemAreaRequest {
-    // TODO comments
+    // This function tries to find a continuous memory area as big as the one requested by
+    // pulling pages from the frame allocator. If it doesn't find an area big enough immediately,
+    // it might return one or two smaller ones (so that we don't leave memory unused for no reason
+    // if it doesn't fit our purposes).
     if let Some(first_page) = unsafe { frame_alloc.allocate() } {
         let first_addr = first_page.addr();
         let mut last_addr = first_addr + FRAME_SIZE;
+        // Keep pulling pages from the frame allocator until we hit the required memory size
+        // or until we run out of memory or we get a block that is not after the previous block received.
         while let Some(next_page) = unsafe { frame_alloc.allocate() } {
             if next_page.addr() == last_addr {
                 last_addr += FRAME_SIZE;
@@ -195,31 +216,43 @@ fn get_mem_area_with_size(
                 break;
             }
         }
+        // If we found a memory area big enough, great! Return it.
         if last_addr - first_addr == mem_size {
             MemAreaRequest::Success((PhysAddr::new(first_addr), PhysAddr::new(last_addr)))
         } else {
+            // If we found a smaller memory block, get the largest piece that is a power of 2
+            // and also greater than a page size. We can use that to make a smaller buddy allocator.
             if let Some(first_memarea) = get_largest_page_multiple(first_addr, last_addr) {
+                // Try to form a second such block with the left-over memory to not waste it.
                 let second_memarea = get_largest_page_multiple(first_memarea.1.addr(), last_addr);
                 MemAreaRequest::SmallerThanReq(first_memarea, second_memarea)
             } else {
+                // This should never happen but let's be safe
                 MemAreaRequest::Fail
             }
         }
     } else {
+        // Couldn't even pull a single page from the frame allocator :(
         MemAreaRequest::Fail
     }
 }
 
 fn get_largest_page_multiple(start: u64, end: u64) -> Option<(PhysAddr, PhysAddr)> {
-    // TODO comments
+    // Given a start and end address, try to find the largest memory size that can fit into that
+    // area that is also a left shift of a FRAME_SIZE (ie. 4096, 8192, 16384 etc.)
+    // We need this because our buddy allocator needs a memory area whose size is a power of 2
+    // in order to be able to split it cleanly and efficiently.
+    // Also, the smallest size of that memory area will be the FRAME_SIZE.
     let mem_len = end - start;
     if mem_len == 0 {
         None
     } else {
+        // double page_mult while it still fits in this mem area
         let mut page_mult = FRAME_SIZE;
         while page_mult <= mem_len {
             page_mult <<= 1;
         }
+        // we went over the limit so divide by two
         page_mult >>= 1;
         let start_addr = PhysAddr::new(start);
         Some((start_addr, start_addr.offset(page_mult)))

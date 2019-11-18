@@ -44,10 +44,12 @@ unsafe impl GlobalAlloc for BuddyAllocatorManager {
                 .iter()
                 .enumerate()
                 .find_map(|(i, allocator)| {
+                    // for each allocator
                     allocator.try_lock().and_then(|mut allocator| {
                         allocator
                             .alloc(layout.size(), layout.align())
                             .map(|allocation| {
+                                // try allocating until one succeeds and return this allocation
                                 serial_println!(
                                     "- BuddyAllocator #{} allocated {} bytes",
                                     i,
@@ -66,12 +68,13 @@ unsafe impl GlobalAlloc for BuddyAllocatorManager {
     }
 
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
-        // TODO comments
         // TODO alignment
         let virt_addr = VirtAddr::new(ptr as u64);
         if let Some((phys_addr, _)) = virt_addr.to_phys() {
             for (i, allocator_mtx) in self.buddy_allocators.read().iter().enumerate() {
+                // for each allocator
                 if let Some(mut allocator) = allocator_mtx.try_lock() {
+                    // find the one whose memory range contains this address
                     if allocator.contains(phys_addr) {
                         serial_println!(
                             "- BuddyAllocator #{} de-allocated {} bytes",
@@ -79,6 +82,7 @@ unsafe impl GlobalAlloc for BuddyAllocatorManager {
                             layout.size()
                         );
                         serial_println!("{}", *allocator);
+                        // deallocate using this allocator!
                         allocator.dealloc(phys_addr, layout.size(), layout.align());
                         return;
                     }
