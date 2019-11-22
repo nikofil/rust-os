@@ -37,7 +37,6 @@ unsafe impl GlobalAlloc for BuddyAllocatorManager {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         // Loop through the list of buddy allocators until we can find one that can give us
         // the requested memory.
-        // TODO alignment
         let allocation =
             self.buddy_allocators
                 .read()
@@ -68,7 +67,6 @@ unsafe impl GlobalAlloc for BuddyAllocatorManager {
     }
 
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
-        // TODO alignment
         let virt_addr = VirtAddr::new(ptr as u64);
         if let Some((phys_addr, _)) = virt_addr.to_phys() {
             for (i, allocator_mtx) in self.buddy_allocators.read().iter().enumerate() {
@@ -139,11 +137,16 @@ impl BuddyAllocator {
         addr.addr() >= self.start_addr.addr() && addr.addr() < self.end_addr.addr()
     }
 
-    fn alloc(&mut self, size: usize, alignment: usize) -> Option<PhysAddr> {
+    fn max_size(&self) -> usize {
         // max size that can be supported by this buddy allocator
-        let max_size = (self.block_size as usize) << (self.num_levels as usize);
-        // can't allocate more than that!
+        (self.block_size as usize) << (self.num_levels as usize)
+    }
+
+    fn req_size_to_level(&self, size: usize) -> Option<usize> {
+        // Find the level of this allocator than can accommodate the required memory size.
+        let max_size = self.max_size();
         if size > max_size {
+            // can't allocate more than the maximum size for this allocator!
             None
         } else {
             // find the largest block level that can support this size
@@ -153,18 +156,37 @@ impl BuddyAllocator {
             }
             // ...but not larger than the max level!
             let req_level = cmp::min(next_level - 1, self.num_levels as usize);
-            self.get_free_block(req_level).map(|block| {
-                // The fn above gives us the index of the block in the given level
-                // so we need to find the size of each block in that level and multiply by the index
-                // to get the offset of the memory that was allocated.
-                let offset = block as u64 * ((max_size as u64) >> req_level as u64);
-                // Add the base address of this buddy allocator's block and return
-                PhysAddr::new(self.start_addr.addr() + offset)
-            })
+            Some(req_level)
         }
     }
 
-    fn dealloc(&mut self, addr: PhysAddr, size: usize, alignment: usize) {}
+    fn alloc(&mut self, size: usize, alignment: usize) -> Option<PhysAddr> {
+        // We should always be aligned due to how the buddy allocator works
+        // (everything will be aligned to block_size bytes).
+        // If we need in some case that we are aligned to a greater size,
+        // allocate a memory block of (alignment) bytes.
+        let size = cmp::max(size, alignment);
+        // find which level of this allocator can accommodate this amount of memory (if any)
+        self.req_size_to_level(size).and_then(|req_level| {
+            // We can accommodate it! Now to check if we actually have / can make a free block
+            // or we're too full.
+            self.get_free_block(req_level).map(|block| {
+                // We got a free block!
+                // get_free_block gives us the index of the block in the given level
+                // so we need to find the size of each block in that level and multiply by the index
+                // to get the offset of the memory that was allocated.
+                let offset = block as u64 * (self.max_size() >> req_level as usize) as u64;
+                // Add the base address of this buddy allocator's block and return
+                PhysAddr::new(self.start_addr.addr() + offset)
+            })
+        })
+    }
+
+    fn dealloc(&mut self, addr: PhysAddr, size: usize, alignment: usize) {
+        // As above, find which size was used for this allocation so that we can find the level
+        // that gave us this memory block.
+        let size = cmp::max(size, alignment);
+    }
 
     fn get_free_block(&mut self, level: usize) -> Option<u32> {
         // Get a block from the free list at this level or split a block above and
