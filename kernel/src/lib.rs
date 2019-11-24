@@ -10,10 +10,10 @@ extern crate multiboot2;
 extern crate pc_keyboard;
 extern crate x86_64;
 
-mod buddy_alloc;
+pub mod buddy_alloc;
 pub mod frame_alloc;
 mod gdt;
-mod global_alloc;
+pub mod global_alloc;
 pub mod interrupts;
 pub mod mem;
 pub mod port;
