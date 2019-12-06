@@ -1,8 +1,9 @@
-use crate::frame_alloc::FrameSingleAllocator;
+use alloc::boxed::Box;
 use core::fmt::Display;
 
 const VIRT_OFFSET: u64 = 0xC0000000;
 pub const FRAME_SIZE: u64 = 0x1000;
+type EmptyFrame = [u8; FRAME_SIZE as usize];
 
 #[repr(C)]
 pub struct PTEntry(u64);
@@ -94,6 +95,14 @@ pub unsafe fn get_page_table() -> &'static mut PageTable {
 }
 
 impl PageTable {
+    unsafe fn alloc_page() -> PhysAddr {
+        let frame: Box<EmptyFrame> = Box::new([0; FRAME_SIZE as usize]);
+        VirtAddr::new(Box::into_raw(frame) as u64)
+            .to_phys()
+            .expect("Could not convert allocated to physical")
+            .0
+    }
+
     pub fn get_entry(&mut self, i: usize) -> &mut PTEntry {
         &mut self.entries[i]
     }
@@ -102,13 +111,12 @@ impl PageTable {
         virt: VirtAddr,
         phys: PhysAddr,
         create_options: u16,
-        allocator: &mut dyn FrameSingleAllocator,
     ) -> &'static PTEntry {
         let create_huge = (create_options & BIT_HUGE) != 0;
         let p4_off = (virt.addr() >> 39) & 0b1_1111_1111;
         let pte = self.get_entry(p4_off as usize);
         if !pte.get_bit(BIT_PRESENT) {
-            let new_frame = allocator.allocate().expect("Could not allocate!");
+            let new_frame = Self::alloc_page();
             pte.set_phys_addr(new_frame);
             pte.set_bit(BIT_PRESENT, true);
             pte.set_bit(BIT_WRITABLE, true);
@@ -116,7 +124,7 @@ impl PageTable {
         let p3_off = (virt.addr() >> 30) & 0b1_1111_1111;
         let pte = pte.next_pt().get_entry(p3_off as usize);
         if !pte.get_bit(BIT_PRESENT) || pte.get_bit(BIT_HUGE) {
-            let new_frame = allocator.allocate().expect("Could not allocate!");
+            let new_frame = Self::alloc_page();
             pte.set_phys_addr(new_frame);
             pte.set_bit(BIT_PRESENT, true);
             pte.set_bit(BIT_WRITABLE, true);
@@ -129,7 +137,7 @@ impl PageTable {
                 pte.set_opts(create_options);
                 return pte;
             } else {
-                let new_frame = allocator.allocate().expect("Could not allocate!");
+                let new_frame = Self::alloc_page();
                 pte.set_phys_addr(new_frame);
                 pte.set_bit(BIT_PRESENT, true);
                 pte.set_bit(BIT_WRITABLE, true);

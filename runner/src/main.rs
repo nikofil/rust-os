@@ -30,6 +30,8 @@ lazy_static! {
     static ref BOOT_INFO: Mutex<Option<&'static BootInfo>> = Mutex::new(None);
 }
 
+static mut DUMMY_ALLOCATOR: Option<DummyFrameAllocator> = None;
+
 #[cfg(test)]
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
@@ -180,7 +182,12 @@ fn test_frame_allocation() {
     cls();
     serial_println!("Testing: Frame allocation and mapping new paging table entries...");
 
-    let mut allocator = get_frame_allocator();
+    unsafe {
+        let allocator = get_frame_allocator();
+        DUMMY_ALLOCATOR.replace(allocator);
+        // initialize frame allocator
+        global_alloc::init_allocator_info(DUMMY_ALLOCATOR.as_mut().unwrap());
+    }
 
     let virt = mem::VirtAddr::new(0xB0000000);
     let phys = mem::PhysAddr::new(0xb8000);
@@ -190,7 +197,6 @@ fn test_frame_allocation() {
             virt,
             phys,
             mem::BIT_WRITABLE | mem::BIT_PRESENT,
-            &mut allocator,
         );
         serial_println!("Mapping written in PT entry at addr {:p}: {}", pte, pte);
         serial_println!("Writing 'X' to virtual {}", virt);
@@ -207,8 +213,6 @@ fn test_frame_allocation() {
 
     serial_println!("[x] Test passed!");
 }
-
-static mut DUMMY_ALLOCATOR: Option<DummyFrameAllocator> = None;
 
 #[test_case]
 fn test_global_allocator() {

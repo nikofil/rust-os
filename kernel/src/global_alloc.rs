@@ -89,6 +89,10 @@ unsafe impl GlobalAlloc for Allocator {
 pub fn init_allocator_info(frame_alloc: &'static mut dyn FrameSingleAllocator) {
     // set the frame allocator as our current allocator
     ALLOCATOR_INFO.frame_allocator.lock().replace(frame_alloc);
+    let old_free_frames = ALLOCATOR_INFO.free_frames.lock().take();
+    // avoid dropping this inside a lock so we don't trigger a free
+    // while holding the lock
+    drop(old_free_frames);
     ALLOCATOR_INFO
         .free_frames
         .lock()
