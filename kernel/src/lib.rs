@@ -20,6 +20,7 @@ pub mod port;
 pub mod serial_port;
 pub mod vga_buffer;
 pub mod scheduler;
+pub mod syscalls;
 
 use gdt::init_gdt;
 use interrupts::setup_idt;
@@ -81,6 +82,9 @@ pub fn start(boot_info: &'static BootInformation) -> ! {
     setup_idt();
     init_pics();
     unsafe {
+        syscalls::init_syscalls();
+    }
+    unsafe {
         let pt = mem::get_page_table();
         println!("Page table: {:p}", pt);
         let entry0 = pt.get_entry(0);
@@ -105,18 +109,25 @@ pub fn start(boot_info: &'static BootInformation) -> ! {
         println!("BOX IS NOT HERE ANYMORE :<");
     }
     set_color(Color::Green, Color::Black, false);
-    println!("Dropping to usermode:");
     unsafe {
+        let userspace_fn_in_kernel = mem::VirtAddr::new(scheduler::userspace_func as *const () as u64);
+        let userspace_fn_phys = userspace_fn_in_kernel.to_phys().unwrap().0;
+        let page_phys_start = (userspace_fn_phys.addr() >> 12) << 12; // zero out page offset to get which page we should map
+        let fn_page_offset = userspace_fn_phys.addr() - page_phys_start;
+        let userspace_fn_virt_base = 0x400000;
+        let userspace_fn_virt = userspace_fn_virt_base + fn_page_offset;
+        println!("Mapping {:x} to {:x}", page_phys_start, userspace_fn_virt_base);
         mem::get_page_table().map_virt_to_phys(
-            mem::VirtAddr::new(0x400000),
-            mem::PhysAddr::new(0x11a000),
+            mem::VirtAddr::new(userspace_fn_virt_base ),
+            mem::PhysAddr::new(page_phys_start),
             mem::BIT_PRESENT | mem::BIT_USER);
         let stack_space = mem::VirtAddr::new(Vec::with_capacity(0x1000).as_mut_ptr() as *const u8 as u64).to_phys().unwrap().0;
         mem::get_page_table().map_virt_to_phys(
             mem::VirtAddr::new(0x800000),
             stack_space,
             mem::BIT_PRESENT | mem::BIT_WRITABLE | mem::BIT_USER);
-        scheduler::jmp_to_usermode(0x400644, 0x800000 + 0x100);
+        println!("Dropping to usermode");
+        scheduler::jmp_to_usermode(userspace_fn_virt, 0x800000 + 0x1000);
         drop(stack_space); // prevent Rust from freeing this early
     }
     loop {

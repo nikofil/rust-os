@@ -12,3 +12,12 @@ pub unsafe fn jmp_to_usermode(code: u64, stack_end: u64) {
     iretq"
     :: "{rdi}"(code), "{rsi}"(stack_end), "{dx}"(cs_idx), "{ax}"(ds_idx) :: "intel", "volatile");
 }
+
+pub unsafe fn userspace_func() {
+    asm!("\
+    syscall
+    syscall
+    syscall
+    syscall
+    "::::: "intel", "volatile");
+}

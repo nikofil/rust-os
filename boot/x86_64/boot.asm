@@ -150,8 +150,10 @@ _enable_paging:
     mov cr4, eax
 
     ; set the long mode bit in the EFER MSR (model specific register)
+    ; also enable System Call Extensions (SCE) to be able to use the syscall opcode
     mov ecx, 0xC0000080
     rdmsr
+    or eax, 1
     or eax, 1 << 8
     wrmsr
 
