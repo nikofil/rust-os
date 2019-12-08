@@ -103,7 +103,7 @@ _long_mode_check:
 _setup_page_table:
     ; map first P4 entry to P3 table
         mov eax, _p3_table_low
-        or eax, 3 ; present + writable
+        or eax, 7 ; present + writable + user
         mov [_p4_table_low], eax
 
         ; map first P3 entry to P2 table

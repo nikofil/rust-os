@@ -19,6 +19,7 @@ pub mod mem;
 pub mod port;
 pub mod serial_port;
 pub mod vga_buffer;
+pub mod scheduler;
 
 use gdt::init_gdt;
 use interrupts::setup_idt;
@@ -104,7 +105,20 @@ pub fn start(boot_info: &'static BootInformation) -> ! {
         println!("BOX IS NOT HERE ANYMORE :<");
     }
     set_color(Color::Green, Color::Black, false);
-    println!("I'M STILL ALIVE!!!");
+    println!("Dropping to usermode:");
+    unsafe {
+        mem::get_page_table().map_virt_to_phys(
+            mem::VirtAddr::new(0x400000),
+            mem::PhysAddr::new(0x11a000),
+            mem::BIT_PRESENT | mem::BIT_USER);
+        let stack_space = mem::VirtAddr::new(Vec::with_capacity(0x1000).as_mut_ptr() as *const u8 as u64).to_phys().unwrap().0;
+        mem::get_page_table().map_virt_to_phys(
+            mem::VirtAddr::new(0x800000),
+            stack_space,
+            mem::BIT_PRESENT | mem::BIT_WRITABLE | mem::BIT_USER);
+        scheduler::jmp_to_usermode(0x400644, 0x800000 + 0x100);
+        drop(stack_space); // prevent Rust from freeing this early
+    }
     loop {
         x86_64::instructions::hlt();
     }

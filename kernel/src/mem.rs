@@ -119,7 +119,12 @@ impl PageTable {
             let new_frame = Self::alloc_page();
             pte.set_phys_addr(new_frame);
             pte.set_bit(BIT_PRESENT, true);
+        }
+        if (create_options & BIT_WRITABLE) != 0 {
             pte.set_bit(BIT_WRITABLE, true);
+        }
+        if (create_options & BIT_USER) != 0 {
+            pte.set_bit(BIT_USER, true);
         }
         let p3_off = (virt.addr() >> 30) & 0b1_1111_1111;
         let pte = pte.next_pt().get_entry(p3_off as usize);
@@ -127,7 +132,12 @@ impl PageTable {
             let new_frame = Self::alloc_page();
             pte.set_phys_addr(new_frame);
             pte.set_bit(BIT_PRESENT, true);
+        }
+        if (create_options & BIT_WRITABLE) != 0 {
             pte.set_bit(BIT_WRITABLE, true);
+        }
+        if (create_options & BIT_USER) != 0 {
+            pte.set_bit(BIT_USER, true);
         }
         let p2_off = (virt.addr() >> 21) & 0b1_1111_1111;
         let pte = pte.next_pt().get_entry(p2_off as usize);
@@ -140,8 +150,13 @@ impl PageTable {
                 let new_frame = Self::alloc_page();
                 pte.set_phys_addr(new_frame);
                 pte.set_bit(BIT_PRESENT, true);
-                pte.set_bit(BIT_WRITABLE, true);
             }
+        }
+        if (create_options & BIT_WRITABLE) != 0 {
+            pte.set_bit(BIT_WRITABLE, true);
+        }
+        if (create_options & BIT_USER) != 0 {
+            pte.set_bit(BIT_USER, true);
         }
         let p1_off = (virt.addr() / FRAME_SIZE) & 0b1_1111_1111;
         let pte = pte.next_pt().get_entry(p1_off as usize);
