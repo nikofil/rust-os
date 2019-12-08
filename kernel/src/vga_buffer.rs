@@ -32,6 +32,7 @@ pub fn set_color(fg: Color, bg: Color, blink: bool) {
     });
 }
 
+#[inline(never)]
 pub fn _print(args: fmt::Arguments) {
     use core::fmt::Write;
     WRITER
