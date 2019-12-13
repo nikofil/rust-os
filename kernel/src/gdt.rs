@@ -44,9 +44,10 @@ lazy_static! {
 pub fn init_gdt() {
     GDT.0.load();
     let stack = unsafe { &STACK as *const _ };
+    let user_stack = unsafe { &PRIV_TSS_STACK as *const _ };
     println!(
-        " - Loaded GDT: {:p} TSS: {:p} Stack {:p} CS segment: {} TSS segment: {}",
-        &GDT.0 as *const _, &*TSS as *const _, stack, GDT.1[0].0, GDT.1[1].0
+        " - Loaded GDT: {:p} TSS: {:p} Stack {:p} User stack: {:p} CS segment: {} TSS segment: {}",
+        &GDT.0 as *const _, &*TSS as *const _, stack, user_stack, GDT.1[0].0, GDT.1[1].0
     );
     unsafe {
         set_cs(GDT.1[0]);
