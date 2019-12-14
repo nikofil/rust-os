@@ -6,6 +6,7 @@ pub const FRAME_SIZE: u64 = 0x1000;
 type EmptyFrame = [u8; FRAME_SIZE as usize];
 
 #[repr(C)]
+#[derive(Copy, Clone)]
 pub struct PTEntry(u64);
 
 #[repr(C)]
@@ -90,11 +91,36 @@ impl Display for PTEntry {
 
 pub unsafe fn get_page_table() -> &'static mut PageTable {
     let mut p4: u64;
-    asm!("mov %cr3, $0" : "=r"(p4) : "i"(VIRT_OFFSET) ::: "volatile");
+    asm!("mov $0, cr3" : "=r"(p4) ::: "intel", "volatile");
     &mut *((p4 + VIRT_OFFSET) as *mut PageTable)
 }
 
 impl PageTable {
+    pub unsafe fn new() -> Box<PageTable> {
+        let mut pt = Box::new(PageTable{ entries: [PTEntry(0); 512] });
+        pt.entries[0].set_phys_addr(Self::alloc_page());
+        pt.entries[0].set_bit(BIT_PRESENT, true);
+        pt.entries[0].set_bit(BIT_WRITABLE, true);
+        pt.entries[0].set_bit(BIT_USER, true);
+        let mut pt0 = pt.entries[0].next_pt();
+        let cur_pt0 = get_page_table().entries[0].next_pt();
+        pt0.entries[3] = cur_pt0.entries[3].clone();
+        pt0.entries[4] = cur_pt0.entries[4].clone();
+        pt0.entries[5] = cur_pt0.entries[5].clone();
+        pt0.entries[6] = cur_pt0.entries[6].clone();
+        pt
+    }
+
+    pub unsafe fn phys_addr(&self) -> PhysAddr {
+        let virt = VirtAddr::new(self as *const _ as u64);
+        virt.to_phys().unwrap().0
+    }
+
+    pub unsafe fn enable(&self) {
+        let phys_addr = self.phys_addr().addr();
+        asm!("mov $0, %cr3" :: "{rax}"(phys_addr) :: "volatile");
+    }
+
     unsafe fn alloc_page() -> PhysAddr {
         let frame: Box<EmptyFrame> = Box::new([0; FRAME_SIZE as usize]);
         VirtAddr::new(Box::into_raw(frame) as u64)

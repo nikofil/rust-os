@@ -1,5 +1,5 @@
 use crate::port::{end_of_interrupt, Port};
-use crate::{print, println, serial_println};
+use crate::{print, println};
 use crate::scheduler;
 use lazy_static::lazy_static;
 use spin::Mutex;
@@ -54,8 +54,6 @@ unsafe extern fn timer(_stack_frame: &mut InterruptStackFrame) {
     asm!("cli" :::: "intel", "volatile");
     let ctx = scheduler::get_context();
     scheduler::SCHEDULER.save_current_context(ctx);
-    print!(".");
-    serial_println!("{:?}", *ctx);
     end_of_interrupt(32);
     asm!("sti" :::: "intel", "volatile");
     // scheduler::restore_context(&*ctx);
