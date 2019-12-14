@@ -31,8 +31,6 @@ use crate::port::init_pics;
 use crate::vga_buffer::set_color;
 use crate::vga_buffer::Color;
 
-use alloc::boxed::Box;
-use alloc::vec::Vec;
 #[cfg(not(feature = "no-panic-handler"))]
 use core::panic::PanicInfo;
 use multiboot2::BootInformation;
@@ -81,7 +79,6 @@ pub fn start(boot_info: &'static BootInformation) -> ! {
     cls();
     init_gdt();
     setup_idt();
-    init_pics();
     unsafe {
         syscalls::init_syscalls();
     }
@@ -104,18 +101,15 @@ pub fn start(boot_info: &'static BootInformation) -> ! {
         let alloc = frame_alloc::SimpleAllocator::new(&boot_info);
         frame_alloc::BOOTINFO_ALLOCATOR.replace(alloc);
         global_alloc::init_global_alloc(frame_alloc::BOOTINFO_ALLOCATOR.as_mut().unwrap());
-        let x = Box::new(Vec::with_capacity(1000000000) as Vec<u8>);
-        println!("BOX IS HERE: {:?}", x);
-        drop(x);
-        println!("BOX IS NOT HERE ANYMORE :<");
     }
     set_color(Color::Green, Color::Black, false);
     let userspace_fn_1_in_kernel = mem::VirtAddr::new(userspace::userspace_prog_1 as *const () as u64);
     let userspace_fn_2_in_kernel = mem::VirtAddr::new(userspace::userspace_prog_2 as *const () as u64);
     unsafe {
-        let mut sched = scheduler::Scheduler::new();
+        let sched = &scheduler::SCHEDULER;
         sched.schedule(userspace_fn_1_in_kernel);
         sched.schedule(userspace_fn_2_in_kernel);
+        init_pics();
         loop {
             sched.run_next();
         }

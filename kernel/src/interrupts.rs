@@ -53,11 +53,13 @@ extern "x86-interrupt" fn double_fault(stack_frame: &mut InterruptStackFrame, er
 unsafe extern fn timer(_stack_frame: &mut InterruptStackFrame) {
     asm!("cli" :::: "intel", "volatile");
     let ctx = scheduler::get_context();
+    scheduler::SCHEDULER.save_current_context(ctx);
     print!(".");
     serial_println!("{:?}", *ctx);
     end_of_interrupt(32);
     asm!("sti" :::: "intel", "volatile");
-    scheduler::set_context(ctx);
+    // scheduler::restore_context(&*ctx);
+    scheduler::SCHEDULER.run_next();
 }
 
 irq_fn!(keyboard, 33, || {
