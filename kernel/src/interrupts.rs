@@ -1,5 +1,6 @@
 use crate::port::{end_of_interrupt, Port};
-use crate::{print, println};
+use crate::{print, println, serial_println};
+use crate::scheduler;
 use lazy_static::lazy_static;
 use spin::Mutex;
 
@@ -48,9 +49,16 @@ extern "x86-interrupt" fn double_fault(stack_frame: &mut InterruptStackFrame, er
     loop {}
 }
 
-irq_fn!(timer, 32, || {
+#[naked]
+unsafe extern fn timer(_stack_frame: &mut InterruptStackFrame) {
+    asm!("cli" :::: "intel", "volatile");
+    let ctx = scheduler::get_context();
     print!(".");
-});
+    serial_println!("{:?}", *ctx);
+    end_of_interrupt(32);
+    asm!("sti" :::: "intel", "volatile");
+    scheduler::set_context(ctx);
+}
 
 irq_fn!(keyboard, 33, || {
     let port: Port<u8> = Port::new(0x60);

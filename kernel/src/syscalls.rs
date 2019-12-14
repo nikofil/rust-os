@@ -19,10 +19,10 @@ pub unsafe fn init_syscalls() {
 }
 
 #[naked]
-fn handle_syscall() {
+fn handle_syscall(_arg0: u64, _arg1: u64, _arg2: u64, _arg3: u64) {
     unsafe { asm!("push rcx; push r11; sub rsp, 0x400" :::: "intel"); }
-    let rsp: u64; let rbx: u64; let rbp: u64; let r12: u64; let r13: u64; let r14: u64; let r15: u64;
-    unsafe { asm!("nop" : "={rsp}"(rsp), "={rbx}"(rbx), "={rbp}"(rbp), "={r12}"(r12), "={r13}"(r13), "={r14}"(r14), "={r15}"(r15) ::: "intel"); }
-    println!("FUCK YEAH SYSCALLS {:x} {} {} {} {} {} {}", rsp, rbx, rbp, r12, r13, r14, r15);
+    let syscall: u64;
+    unsafe { asm!("nop" : "={rax}"(syscall) ::: "intel"); }
+    println!("syscall {}", syscall);
     unsafe { asm!("add rsp, 0x400; pop r11; pop rcx; sysretq" :::: "intel"); }
 }

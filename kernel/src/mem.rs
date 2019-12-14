@@ -176,6 +176,10 @@ impl VirtAddr {
         VirtAddr(addr)
     }
 
+    pub fn offset(&self, offset: u64) -> VirtAddr {
+        VirtAddr::new(self.0 + offset)
+    }
+
     pub unsafe fn to_ref<T>(&self) -> &'static mut T {
         &mut *(self.0 as *mut T)
     }

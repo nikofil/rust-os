@@ -2,7 +2,7 @@ use crate::frame_alloc::FrameSingleAllocator;
 use crate::mem::PhysAddr;
 use crate::mem::VirtAddr;
 use crate::mem::FRAME_SIZE;
-use crate::serial_println;
+// use crate::serial_println;
 use alloc::alloc::{GlobalAlloc, Layout};
 use alloc::vec::Vec;
 use core::cmp;
@@ -57,40 +57,40 @@ impl BuddyAllocatorManager {
             match Self::get_mem_area_with_size(frame_alloc, mem_size) {
                 // Success! Found a memory area big enough for our purposes.
                 MemAreaRequest::Success((mem_start, mem_end)) => {
-                    serial_println!(
-                        "* Adding requested mem area to BuddyAlloc: {} to {} ({})",
-                        mem_start,
-                        mem_end,
-                        mem_end.addr() - mem_start.addr()
-                    );
+                    // serial_println!(
+                    //     "* Adding requested mem area to BuddyAlloc: {} to {} ({})",
+                    //     mem_start,
+                    //     mem_end,
+                    //     mem_end.addr() - mem_start.addr()
+                    // );
                     self.add_memory_area(mem_start, mem_end, block_size);
                     return true;
                 }
                 // Found one or two smaller memory areas instead, insert them and keep looking.
                 MemAreaRequest::SmallerThanReq((mem_start, mem_end), second_area) => {
                     self.add_memory_area(mem_start, mem_end, block_size);
-                    serial_println!(
-                        "* Adding smaller mem area to BuddyAlloc: {} to {} ({})",
-                        mem_start,
-                        mem_end,
-                        mem_end.addr() - mem_start.addr()
-                    );
+                    // serial_println!(
+                    //     "* Adding smaller mem area to BuddyAlloc: {} to {} ({})",
+                    //     mem_start,
+                    //     mem_end,
+                    //     mem_end.addr() - mem_start.addr()
+                    // );
                     if let Some((mem_start, mem_end)) = second_area {
                         self.add_memory_area(mem_start, mem_end, block_size);
-                        serial_println!(
-                            "* Adding smaller mem area to BuddyAlloc: {} to {} ({})",
-                            mem_start,
-                            mem_end,
-                            mem_end.addr() - mem_start.addr()
-                        );
+                        // serial_println!(
+                        //     "* Adding smaller mem area to BuddyAlloc: {} to {} ({})",
+                        //     mem_start,
+                        //     mem_end,
+                        //     mem_end.addr() - mem_start.addr()
+                        // );
                     }
                 }
                 // Ran out of memory! Return false.
                 MemAreaRequest::Fail => {
-                    serial_println!(
-                        "! Failed to find mem area big enough for BuddyAlloc: {}",
-                        mem_size
-                    );
+                    // serial_println!(
+                    //     "! Failed to find mem area big enough for BuddyAlloc: {}",
+                    //     mem_size
+                    // );
                     return false;
                 }
             }
@@ -173,19 +173,19 @@ unsafe impl GlobalAlloc for BuddyAllocatorManager {
                 .read()
                 .iter()
                 .enumerate()
-                .find_map(|(i, allocator)| {
+                .find_map(|(_i, allocator)| {
                     // for each allocator
                     allocator.try_lock().and_then(|mut allocator| {
                         allocator
                             .alloc(layout.size(), layout.align())
                             .map(|allocation| {
                                 // try allocating until one succeeds and return this allocation
-                                serial_println!(
-                                    " - BuddyAllocator #{} allocated {} bytes",
-                                    i,
-                                    layout.size()
-                                );
-                                serial_println!("{}", *allocator);
+                                // serial_println!(
+                                //     " - BuddyAllocator #{} allocated {} bytes",
+                                //     i,
+                                //     layout.size()
+                                // );
+                                // serial_println!("{}", *allocator);
                                 allocation
                             })
                     })
@@ -200,28 +200,28 @@ unsafe impl GlobalAlloc for BuddyAllocatorManager {
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
         let virt_addr = VirtAddr::new(ptr as u64);
         if let Some((phys_addr, _)) = virt_addr.to_phys() {
-            for (i, allocator_mtx) in self.buddy_allocators.read().iter().enumerate() {
+            for (_i, allocator_mtx) in self.buddy_allocators.read().iter().enumerate() {
                 // for each allocator
                 if let Some(mut allocator) = allocator_mtx.try_lock() {
                     // find the one whose memory range contains this address
                     if allocator.contains(phys_addr) {
                         // deallocate using this allocator!
                         allocator.dealloc(phys_addr, layout.size(), layout.align());
-                        serial_println!(
-                            " - BuddyAllocator #{} de-allocated {} bytes",
-                            i,
-                            layout.size()
-                        );
-                        serial_println!("{}", *allocator);
+                        // serial_println!(
+                        //     " - BuddyAllocator #{} de-allocated {} bytes",
+                        //     i,
+                        //     layout.size()
+                        // );
+                        // serial_println!("{}", *allocator);
                         return;
                     }
                 }
             }
         }
-        serial_println!(
-            "! Could not de-allocate virtual address: {} / Memory lost",
-            virt_addr
-        );
+        // serial_println!(
+        //     "! Could not de-allocate virtual address: {} / Memory lost",
+        //     virt_addr
+        // );
     }
 }
 

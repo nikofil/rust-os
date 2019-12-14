@@ -21,6 +21,7 @@ pub mod serial_port;
 pub mod vga_buffer;
 pub mod scheduler;
 pub mod syscalls;
+mod userspace;
 
 use gdt::init_gdt;
 use interrupts::setup_idt;
@@ -109,28 +110,14 @@ pub fn start(boot_info: &'static BootInformation) -> ! {
         println!("BOX IS NOT HERE ANYMORE :<");
     }
     set_color(Color::Green, Color::Black, false);
+    let userspace_fn_1_in_kernel = mem::VirtAddr::new(userspace::userspace_prog_1 as *const () as u64);
+    let userspace_fn_2_in_kernel = mem::VirtAddr::new(userspace::userspace_prog_2 as *const () as u64);
     unsafe {
-        let userspace_fn_in_kernel = mem::VirtAddr::new(scheduler::userspace_func as *const () as u64);
-        let userspace_fn_phys = userspace_fn_in_kernel.to_phys().unwrap().0;
-        let page_phys_start = (userspace_fn_phys.addr() >> 12) << 12; // zero out page offset to get which page we should map
-        let fn_page_offset = userspace_fn_phys.addr() - page_phys_start;
-        let userspace_fn_virt_base = 0x400000;
-        let userspace_fn_virt = userspace_fn_virt_base + fn_page_offset;
-        println!("Mapping {:x} to {:x}", page_phys_start, userspace_fn_virt_base);
-        mem::get_page_table().map_virt_to_phys(
-            mem::VirtAddr::new(userspace_fn_virt_base ),
-            mem::PhysAddr::new(page_phys_start),
-            mem::BIT_PRESENT | mem::BIT_USER);
-        let stack_space = mem::VirtAddr::new(Vec::with_capacity(0x1000).as_mut_ptr() as *const u8 as u64).to_phys().unwrap().0;
-        mem::get_page_table().map_virt_to_phys(
-            mem::VirtAddr::new(0x800000),
-            stack_space,
-            mem::BIT_PRESENT | mem::BIT_WRITABLE | mem::BIT_USER);
-        println!("Dropping to usermode");
-        scheduler::jmp_to_usermode(userspace_fn_virt, 0x800000 + 0x1000);
-        drop(stack_space); // prevent Rust from freeing this early
-    }
-    loop {
-        x86_64::instructions::hlt();
+        let mut sched = scheduler::Scheduler::new();
+        sched.schedule(userspace_fn_1_in_kernel);
+        sched.schedule(userspace_fn_2_in_kernel);
+        loop {
+            sched.run_next();
+        }
     }
 }
