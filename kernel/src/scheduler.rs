@@ -87,7 +87,7 @@ impl Task {
 impl Display for Task {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         unsafe {
-            write!(f, "PT: {}, Context: {:?}", self.task_pt.phys_addr(), self.ctx)
+            write!(f, "PT: {}, Context: {:x?}", self.task_pt.phys_addr(), self.ctx)
         }
     }
 }
