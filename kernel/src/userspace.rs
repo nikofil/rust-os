@@ -19,7 +19,7 @@ pub unsafe fn userspace_prog_1() {
         mov rax, 0x0
         xx1:
         inc rax
-        cmp rax, 0x40000000
+        cmp rax, 0x4000000
         jnz xx1
         mov rax, 666
         syscall
@@ -48,7 +48,7 @@ pub unsafe fn userspace_prog_2() {
         mov rax, 0x0
         xx3:
         inc rax
-        cmp rax, 0x40000000
+        cmp rax, 0x4000000
         jnz xx3
         mov rax, 999
         syscall
