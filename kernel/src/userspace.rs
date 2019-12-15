@@ -1,6 +1,7 @@
 pub unsafe fn userspace_prog_1() {
     asm!("\
         xx2:
+        push 666
         mov rbp, 0
         mov rax, 1
         mov rbx, 2
@@ -19,9 +20,10 @@ pub unsafe fn userspace_prog_1() {
         mov rax, 0x0
         xx1:
         inc rax
-        cmp rax, 0x4000000
+        cmp rax, 0x40000
         jnz xx1
-        mov rax, 666
+        mov rax, rsp
+        pop rdi
         syscall
         jmp xx2
     ":::: "volatile", "intel");
@@ -30,6 +32,7 @@ pub unsafe fn userspace_prog_1() {
 pub unsafe fn userspace_prog_2() {
     asm!("\
         xx4:
+        push 999
         mov rbp, 100
         mov rax, 101
         mov rbx, 102
@@ -48,9 +51,10 @@ pub unsafe fn userspace_prog_2() {
         mov rax, 0x0
         xx3:
         inc rax
-        cmp rax, 0x4000000
+        cmp rax, 0x40000
         jnz xx3
-        mov rax, 999
+        mov rax, rsp
+        pop rdi
         syscall
         jmp xx4
     ":::: "volatile", "intel");

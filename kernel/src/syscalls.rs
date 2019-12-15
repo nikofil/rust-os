@@ -1,4 +1,5 @@
 use crate::println;
+use alloc::vec::Vec;
 
 // register for address of syscall handler
 const MSR_STAR: usize = 0xc0000081;
@@ -26,13 +27,43 @@ pub unsafe fn init_syscalls() {
 
 #[naked]
 fn handle_syscall() {
-    unsafe { asm!("push rcx; push r11; sub rsp, 0x400" :::: "intel"); }
+    unsafe { asm!("\
+        push rcx
+        push r11
+        push rbp // backup registers for sysretq
+        mov rbp, rsp
+        sub rsp, 0x400 // make some room in the stack
+        push rax // backup syscall params while we get some stack space
+        push rdi
+        push rsi
+        push rdx
+        push r10"
+        :::: "intel", "volatile"); }
+    let syscall_stack: Vec<u8> = Vec::with_capacity(0x1000);
+    let stack_ptr = syscall_stack.as_ptr();
+    unsafe { asm!("\
+        pop r10 // restore syscall params to their registers
+        pop rdx
+        pop rsi
+        pop rdi
+        pop rax
+        mov rsp, rbx // move our stack to the newly allocated one
+        sti // enable interrupts"
+        :: "{rbx}"(stack_ptr) : "rbx" : "intel", "volatile"); }
     let syscall: u64;
     let arg0: u64;
     let arg1: u64;
     let arg2: u64;
     let arg3: u64;
-    unsafe { asm!("nop" : "={rax}"(syscall), "={rdi}"(arg0), "={rsi}"(arg1), "={rdx}"(arg2), "={r10}"(arg3) ::: "intel"); }
-    println!("syscall {} {} {} {} {}", syscall, arg0, arg1, arg2, arg3);
-    unsafe { asm!("add rsp, 0x400; pop r11; pop rcx; sysretq" :::: "intel"); }
+    unsafe { asm!("nop" : "={rax}"(syscall), "={rdi}"(arg0), "={rsi}"(arg1), "={rdx}"(arg2), "={r10}"(arg3) ::: "intel", "volatile"); }
+    println!("syscall {:x} {} {} {} {}", syscall, arg0, arg1, arg2, arg3);
+    unsafe { asm!("cli" :::: "intel", "volatile"); } // disable interrupts while restoring the stack
+    drop(syscall_stack); // we can now drop the syscall temp stack
+    unsafe { asm!("\
+        mov rsp, rbp // restore stack and registers for sysretq
+        pop rbp
+        pop r11
+        pop rcx
+        sysretq // back to userland"
+        :::: "intel", "volatile"); }
 }
