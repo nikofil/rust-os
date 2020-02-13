@@ -2,7 +2,7 @@ pub unsafe fn userspace_prog_1() {
     asm!("\
         mov rbx, 0xf0000000
         xx2:
-        push 666
+        push 0x595ca11a
         mov rbp, 0
         mov rax, 1
         mov rcx, 3
@@ -19,7 +19,7 @@ pub unsafe fn userspace_prog_1() {
         mov rax, 0x0
         xx1:
         inc rax
-        cmp rax, 0x40
+        cmp rax, 0x40000
         jnz xx1
         mov rdi, rsp
         pop rax
@@ -34,7 +34,7 @@ pub unsafe fn userspace_prog_2() {
     asm!("\
         mov rbx, 0
         xx4:
-        push 999
+        push 0x595ca11b
         mov rbp, 100
         mov rax, 101
         mov rcx, 103
@@ -51,7 +51,7 @@ pub unsafe fn userspace_prog_2() {
         mov rax, 0x0
         xx3:
         inc rax
-        cmp rax, 0x40
+        cmp rax, 0x40000
         jnz xx3
         mov rdi, rsp
         pop rax

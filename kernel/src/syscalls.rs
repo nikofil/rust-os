@@ -9,7 +9,7 @@ const MSR_FMASK: usize = 0xc0000084;
 
 pub unsafe fn init_syscalls() {
     let handler_addr = handle_syscall as *const () as u64;
-    // write handler address to AMD's MSR_LSTAR register
+    // write zero mask to AMD's MSR_FSTAR register for masking RFLAGS
     asm!("\
     xor rdx, rdx
     mov rax, 0x200
@@ -32,7 +32,7 @@ fn sys0(a: u64, b: u64, c: u64, d: u64) -> i64 {
 }
 
 fn sys1(a: u64, b: u64, c: u64, d: u64) -> i64 {
-    serial_println!("sys1 {:x} {} {} {}", a, b, c, d);
+    println!("sys1 {:x} {} {} {}", a, b, c, d);
     456
 }
 
@@ -74,8 +74,8 @@ fn handle_syscall() {
     unsafe { asm!("nop" : "={rax}"(syscall), "={rdi}"(arg0), "={rsi}"(arg1), "={rdx}"(arg2), "={r10}"(arg3) ::: "intel", "volatile"); }
     // println!("syscall {:x} {} {} {} {}", syscall, arg0, arg1, arg2, arg3);
     let retval: i64 = match syscall {
-        666 => sys0(arg0, arg1, arg2, arg3),
-        999 => sys1(arg0, arg1, arg2, arg3),
+        0x595ca11a => sys0(arg0, arg1, arg2, arg3),
+        0x595ca11b => sys1(arg0, arg1, arg2, arg3),
         _ => -1,
     };
     unsafe { asm!("mov rbx, $0; cli" :: "r"(retval) :: "intel", "volatile"); } // disable interrupts while restoring the stack
