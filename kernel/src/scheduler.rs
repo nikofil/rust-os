@@ -51,9 +51,10 @@ pub unsafe fn restore_context(ctxr: &Context) {
     :: "r"(ctxr) :: "intel", "volatile");
 }
 
+#[inline(never)]
 pub unsafe fn jmp_to_usermode(code: mem::VirtAddr, stack_end: mem::VirtAddr) {
     let (cs_idx, ds_idx) = gdt::set_usermode_segs();
-    x86_64::instructions::tlb::flush_all();
+    x86_64::instructions::tlb::flush_all(); // flush the TLB after address-space switch
     asm!("\
     push rax // stack segment
     push rsi // rsp

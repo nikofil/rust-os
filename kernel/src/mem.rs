@@ -97,17 +97,17 @@ pub unsafe fn get_page_table() -> &'static mut PageTable {
 
 impl PageTable {
     pub unsafe fn new() -> Box<PageTable> {
-        let mut pt = Box::new(PageTable{ entries: [PTEntry(0); 512] });
-        pt.entries[0].set_phys_addr(Self::alloc_page());
+        let mut pt = Box::new(PageTable{ entries: [PTEntry(0); 512] }); // allocate the master PT struct
+        pt.entries[0].set_phys_addr(Self::alloc_page()); // allocate page for the first child PT
         pt.entries[0].set_bit(BIT_PRESENT, true);
         pt.entries[0].set_bit(BIT_WRITABLE, true);
-        pt.entries[0].set_bit(BIT_USER, true);
-        let mut pt0 = pt.entries[0].next_pt();
+        pt.entries[0].set_bit(BIT_USER, true); // entry is present, writable and accessible by user
+        let mut pt0 = pt.entries[0].next_pt(); // get the child PT we just allocated
         let cur_pt0 = get_page_table().entries[0].next_pt();
-        pt0.entries[3] = cur_pt0.entries[3].clone();
-        pt0.entries[4] = cur_pt0.entries[4].clone();
-        pt0.entries[5] = cur_pt0.entries[5].clone();
-        pt0.entries[6] = cur_pt0.entries[6].clone();
+        pt0.entries[3] = cur_pt0.entries[3].clone(); // copy over the entries 3, 4, 5, 6 from the equivalent
+        pt0.entries[4] = cur_pt0.entries[4].clone(); // child PT that is currently in use
+        pt0.entries[5] = cur_pt0.entries[5].clone(); // these correspond to the addresses our kernel uses
+        pt0.entries[6] = cur_pt0.entries[6].clone(); // plus some more, so that the entire physical memory is mapped
         pt
     }
 

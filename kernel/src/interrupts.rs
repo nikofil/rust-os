@@ -44,6 +44,11 @@ extern "x86-interrupt" fn page_fault(stack_frame: &mut InterruptStackFrame, err_
     loop {}
 }
 
+extern "x86-interrupt" fn gpf(stack_frame: &mut InterruptStackFrame, err_code: u64) {
+    println!("gpf! err code: {} {:?}", err_code, stack_frame);
+    loop {}
+}
+
 extern "x86-interrupt" fn double_fault(stack_frame: &mut InterruptStackFrame, err_code: u64) {
     println!("double fault! err code: {} {:?}", err_code, stack_frame);
     loop {}
@@ -92,6 +97,7 @@ lazy_static! {
             true,
             0,
         );
+        idt_entry!(13, gpf);
         idt_entry!(14, page_fault);
         idt_entry!(32, timer);
         idt_entry!(33, keyboard);

@@ -59,11 +59,9 @@ pub fn init_gdt() {
 #[inline(always)]
 pub unsafe fn set_usermode_segs() -> (u16, u16) {
     // set ds and tss, return cs and ds
-    let (mut cs, mut ds, mut tss) = (GDT.1[4], GDT.1[3], GDT.1[2]);
+    let (mut cs, mut ds) = (GDT.1[4], GDT.1[3]);
     cs.0 |= PrivilegeLevel::Ring3 as u16;
     ds.0 |= PrivilegeLevel::Ring3 as u16;
-    tss.0 |= PrivilegeLevel::Ring3 as u16;
     load_ds(ds);
-    // load_tss(tss);
     (cs.0, ds.0)
 }
