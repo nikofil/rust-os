@@ -7,7 +7,7 @@ use x86_64::structures::tss::TaskStateSegment;
 use x86_64::{PrivilegeLevel, VirtAddr};
 
 pub const DOUBLE_FAULT_IST_INDEX: u8 = 0;
-const STACK_SIZE: usize = 4096;
+const STACK_SIZE: usize = 0x2000;
 pub static mut STACK: [u8; STACK_SIZE] = [0; STACK_SIZE];
 pub static mut PRIV_TSS_STACK: [u8; STACK_SIZE] = [0; STACK_SIZE];
 
