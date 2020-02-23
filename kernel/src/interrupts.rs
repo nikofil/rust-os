@@ -1,6 +1,6 @@
 use crate::port::{end_of_interrupt, Port};
-use crate::{print, println};
 use crate::scheduler;
+use crate::{print, println};
 use lazy_static::lazy_static;
 use spin::Mutex;
 
@@ -55,7 +55,7 @@ extern "x86-interrupt" fn double_fault(stack_frame: &mut InterruptStackFrame, er
 }
 
 #[naked]
-unsafe extern fn timer(_stack_frame: &mut InterruptStackFrame) {
+unsafe extern "C" fn timer(_stack_frame: &mut InterruptStackFrame) {
     let ctx = scheduler::get_context();
     scheduler::SCHEDULER.save_current_context(ctx);
     end_of_interrupt(32);

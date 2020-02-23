@@ -39,7 +39,8 @@ fn sys1(a: u64, b: u64, c: u64, d: u64) -> i64 {
 
 #[naked]
 fn handle_syscall() {
-    unsafe { asm!("\
+    unsafe {
+        asm!("\
         push rcx // backup registers for sysretq
         push r11
         push rbp // save callee-saved registers
@@ -55,10 +56,12 @@ fn handle_syscall() {
         push rsi
         push rdx
         push r10"
-        :::: "intel", "volatile"); }
+        :::: "intel", "volatile");
+    }
     let syscall_stack: Vec<u8> = Vec::with_capacity(0x10000);
     let stack_ptr = syscall_stack.as_ptr();
-    unsafe { asm!("\
+    unsafe {
+        asm!("\
         pop r10 // restore syscall params to their registers
         pop rdx
         pop rsi
@@ -66,7 +69,8 @@ fn handle_syscall() {
         pop rax
         mov rsp, rbx // move our stack to the newly allocated one
         sti // enable interrupts"
-        :: "{rbx}"(stack_ptr) : "rbx" : "intel", "volatile"); }
+        :: "{rbx}"(stack_ptr) : "rbx" : "intel", "volatile");
+    }
     let syscall: u64;
     let arg0: u64;
     let arg1: u64;
@@ -82,13 +86,15 @@ fn handle_syscall() {
         0x595ca11b => sys1(arg0, arg1, arg2, arg3),
         _ => -1,
     };
-    unsafe { asm!("\
+    unsafe {
+        asm!("\
         mov rbx, $0 // save return value into rbx so that it's maintained through free
         cli" // disable interrupts while restoring the stack
         :: "r"(retval) :: "intel", "volatile");
     }
     drop(syscall_stack); // we can now drop the syscall temp stack
-    unsafe { asm!("\
+    unsafe {
+        asm!("\
         mov rax, rbx // restore syscall return value from rbx to rax
         mov rsp, rbp // restore rsp from rbp
         pop r15 // restore callee-saved registers
@@ -100,5 +106,6 @@ fn handle_syscall() {
         pop r11
         pop rcx
         sysretq // back to userland"
-        :::: "intel", "volatile"); }
+        :::: "intel", "volatile");
+    }
 }

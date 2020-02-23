@@ -126,9 +126,11 @@ impl BuddyAllocatorManager {
             } else {
                 // If we found a smaller memory block, get the largest piece that is a power of 2
                 // and also greater than a page size. We can use that to make a smaller buddy allocator.
-                if let Some(first_memarea) = Self::get_largest_page_multiple(first_addr, last_addr) {
+                if let Some(first_memarea) = Self::get_largest_page_multiple(first_addr, last_addr)
+                {
                     // Try to form a second such block with the left-over memory to not waste it.
-                    let second_memarea = Self::get_largest_page_multiple(first_memarea.1.addr(), last_addr);
+                    let second_memarea =
+                        Self::get_largest_page_multiple(first_memarea.1.addr(), last_addr);
                     MemAreaRequest::SmallerThanReq(first_memarea, second_memarea)
                 } else {
                     // This should never happen but let's be safe
@@ -226,10 +228,10 @@ unsafe impl GlobalAlloc for BuddyAllocatorManager {
 }
 
 struct BuddyAllocator {
-    start_addr: PhysAddr, // the first physical address that this struct manages
-    end_addr: PhysAddr, // one byte after the last physical address that this struct manages
-    num_levels: u8, // the number of non-leaf levels
-    block_size: u16, // the size of blocks on the leaf level
+    start_addr: PhysAddr,      // the first physical address that this struct manages
+    end_addr: PhysAddr,        // one byte after the last physical address that this struct manages
+    num_levels: u8,            // the number of non-leaf levels
+    block_size: u16,           // the size of blocks on the leaf level
     free_lists: Vec<Vec<u32>>, // the list of free blocks on each level
 }
 

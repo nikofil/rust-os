@@ -14,10 +14,7 @@ pub fn _print(args: ::core::fmt::Arguments) {
     use core::fmt::Write;
     SERIAL1
         .try_lock()
-        .map(|mut lock| lock
-            .write_fmt(args)
-            .expect("Printing to serial failed")
-        );
+        .map(|mut lock| lock.write_fmt(args).expect("Printing to serial failed"));
 }
 
 /// Prints to the host through the serial interface.

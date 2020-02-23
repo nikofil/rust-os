@@ -1,11 +1,11 @@
-use crate::serial_println;
 use crate::gdt;
 use crate::mem;
-use lazy_static::lazy_static;
-use alloc::vec::Vec;
-use spin::Mutex;
+use crate::serial_println;
 use alloc::boxed::Box;
+use alloc::vec::Vec;
 use core::fmt::Display;
+use lazy_static::lazy_static;
+use spin::Mutex;
 
 #[derive(Debug, Clone)]
 pub struct Context {
@@ -66,20 +66,25 @@ pub unsafe fn jmp_to_usermode(code: mem::VirtAddr, stack_end: mem::VirtAddr) {
 }
 
 #[derive(Clone, Debug)]
-enum TaskState { // a task's state can either be
-    SavedContext(Context), // a saved context
+enum TaskState {
+    // a task's state can either be
+    SavedContext(Context),                      // a saved context
     StartingInfo(mem::VirtAddr, mem::VirtAddr), // or a starting instruction and stack pointer
 }
 
 struct Task {
-    state: TaskState, // the current state of the task
+    state: TaskState,             // the current state of the task
     task_pt: Box<mem::PageTable>, // the page table for this task
-    _stack_vec: Vec<u8>, // a vector to keep the task's stack space
+    _stack_vec: Vec<u8>,          // a vector to keep the task's stack space
 }
 
 impl Task {
-    pub fn new(exec_base: mem::VirtAddr, stack_end: mem::VirtAddr, _stack_vec: Vec<u8>,
-               task_pt: Box<mem::PageTable>) -> Task {
+    pub fn new(
+        exec_base: mem::VirtAddr,
+        stack_end: mem::VirtAddr,
+        _stack_vec: Vec<u8>,
+        task_pt: Box<mem::PageTable>,
+    ) -> Task {
         Task {
             state: TaskState::StartingInfo(exec_base, stack_end),
             _stack_vec,
@@ -91,7 +96,12 @@ impl Task {
 impl Display for Task {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         unsafe {
-            write!(f, "PT: {}, Context: {:x?}", self.task_pt.phys_addr(), self.state)
+            write!(
+                f,
+                "PT: {}, Context: {:x?}",
+                self.task_pt.phys_addr(),
+                self.state
+            )
         }
     }
 }
@@ -115,32 +125,48 @@ impl Scheduler {
         let fn_page_offset = userspace_fn_phys.addr() - page_phys_start; // offset of function from page start
         let userspace_fn_virt_base = 0x400000; // target virtual address of page
         let userspace_fn_virt = userspace_fn_virt_base + fn_page_offset; // target virtual address of function
-        serial_println!("Mapping {:x} to {:x}", page_phys_start, userspace_fn_virt_base);
+        serial_println!(
+            "Mapping {:x} to {:x}",
+            page_phys_start,
+            userspace_fn_virt_base
+        );
         let mut task_pt = mem::PageTable::new(); // copy over the kernel's page tables
         task_pt.map_virt_to_phys(
             mem::VirtAddr::new(userspace_fn_virt_base),
             mem::PhysAddr::new(page_phys_start),
-            mem::BIT_PRESENT | mem::BIT_USER); // map the program's code
+            mem::BIT_PRESENT | mem::BIT_USER,
+        ); // map the program's code
         task_pt.map_virt_to_phys(
             mem::VirtAddr::new(userspace_fn_virt_base).offset(0x1000),
             mem::PhysAddr::new(page_phys_start).offset(0x1000),
-            mem::BIT_PRESENT | mem::BIT_USER); // also map another page to be sure we got the entire function in
+            mem::BIT_PRESENT | mem::BIT_USER,
+        ); // also map another page to be sure we got the entire function in
         let mut stack_space: Vec<u8> = Vec::with_capacity(0x1000); // allocate some memory to use for the stack
-        let stack_space_phys = mem::VirtAddr::new(stack_space.as_mut_ptr() as *const u8 as u64).to_phys().unwrap().0;
+        let stack_space_phys = mem::VirtAddr::new(stack_space.as_mut_ptr() as *const u8 as u64)
+            .to_phys()
+            .unwrap()
+            .0;
         // take physical address of stack
         task_pt.map_virt_to_phys(
             mem::VirtAddr::new(0x800000),
             stack_space_phys,
-            mem::BIT_PRESENT | mem::BIT_WRITABLE | mem::BIT_USER); // map the stack memory to 0x800000
-        let task = Task::new(mem::VirtAddr::new(userspace_fn_virt),
-                             mem::VirtAddr::new(0x801000), stack_space, task_pt); // create task struct
+            mem::BIT_PRESENT | mem::BIT_WRITABLE | mem::BIT_USER,
+        ); // map the stack memory to 0x800000
+        let task = Task::new(
+            mem::VirtAddr::new(userspace_fn_virt),
+            mem::VirtAddr::new(0x801000),
+            stack_space,
+            task_pt,
+        ); // create task struct
         self.tasks.lock().push(task); // push task struct to list of tasks
     }
 
     pub unsafe fn save_current_context(&self, ctxp: *const Context) {
-        self.cur_task.lock().map(|cur_task_idx| { // if there is a current task
+        self.cur_task.lock().map(|cur_task_idx| {
+            // if there is a current task
             let ctx = (*ctxp).clone();
-            self.tasks.lock()[cur_task_idx].state = TaskState::SavedContext(ctx); // replace its context with the given one
+            self.tasks.lock()[cur_task_idx].state = TaskState::SavedContext(ctx);
+            // replace its context with the given one
         });
     }
 
@@ -160,10 +186,10 @@ impl Scheduler {
             match task_state {
                 TaskState::SavedContext(ctx) => {
                     restore_context(&ctx) // either restore the saved context
-                },
+                }
                 TaskState::StartingInfo(exec_base, stack_end) => {
                     jmp_to_usermode(exec_base, stack_end) // or initialize the task with the given instruction, stack pointers
-                },
+                }
             }
         }
     }

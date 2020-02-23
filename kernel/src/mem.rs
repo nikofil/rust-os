@@ -97,7 +97,9 @@ pub unsafe fn get_page_table() -> &'static mut PageTable {
 
 impl PageTable {
     pub unsafe fn new() -> Box<PageTable> {
-        let mut pt = Box::new(PageTable{ entries: [PTEntry(0); 512] }); // allocate the master PT struct
+        let mut pt = Box::new(PageTable {
+            entries: [PTEntry(0); 512],
+        }); // allocate the master PT struct
         pt.entries[0].set_phys_addr(Self::alloc_page()); // allocate page for the first child PT
         pt.entries[0].set_bit(BIT_PRESENT, true);
         pt.entries[0].set_bit(BIT_WRITABLE, true);

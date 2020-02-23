@@ -1,8 +1,10 @@
 use crate::println;
 use lazy_static::lazy_static;
-use x86_64::instructions::segmentation::{set_cs, load_ds};
+use x86_64::instructions::segmentation::{load_ds, set_cs};
 use x86_64::instructions::tables::load_tss;
-use x86_64::structures::gdt::{Descriptor, GlobalDescriptorTable, SegmentSelector, DescriptorFlags};
+use x86_64::structures::gdt::{
+    Descriptor, DescriptorFlags, GlobalDescriptorTable, SegmentSelector,
+};
 use x86_64::structures::tss::TaskStateSegment;
 use x86_64::{PrivilegeLevel, VirtAddr};
 
@@ -31,13 +33,17 @@ lazy_static! {
 lazy_static! {
     static ref GDT: (GlobalDescriptorTable, [SegmentSelector; 5]) = {
         let mut gdt = GlobalDescriptorTable::new();
-        let kernel_data_flags = DescriptorFlags::USER_SEGMENT | DescriptorFlags::PRESENT | DescriptorFlags::WRITABLE;
+        let kernel_data_flags =
+            DescriptorFlags::USER_SEGMENT | DescriptorFlags::PRESENT | DescriptorFlags::WRITABLE;
         let code_sel = gdt.add_entry(Descriptor::kernel_code_segment());
         let data_sel = gdt.add_entry(Descriptor::UserSegment(kernel_data_flags.bits()));
         let tss_sel = gdt.add_entry(Descriptor::tss_segment(&TSS));
         let user_data_sel = gdt.add_entry(Descriptor::user_data_segment());
         let user_code_sel = gdt.add_entry(Descriptor::user_code_segment());
-        (gdt, [code_sel, data_sel, tss_sel, user_data_sel, user_code_sel])
+        (
+            gdt,
+            [code_sel, data_sel, tss_sel, user_data_sel, user_code_sel],
+        )
     };
 }
 
