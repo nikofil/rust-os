@@ -1,5 +1,4 @@
 use crate::println;
-use crate::serial_println;
 use alloc::vec::Vec;
 
 // register for address of syscall handler
@@ -26,11 +25,13 @@ pub unsafe fn init_syscalls() {
     wrmsr" :: "{rcx}"(MSR_STAR) : "rax", "rdx" : "intel", "volatile");
 }
 
+#[inline(never)]
 fn sys0(a: u64, b: u64, c: u64, d: u64) -> i64 {
     println!("sys0 {:x} {} {} {}", a, b, c, d);
     123
 }
 
+#[inline(never)]
 fn sys1(a: u64, b: u64, c: u64, d: u64) -> i64 {
     println!("sys1 {:x} {} {} {}", a, b, c, d);
     456
@@ -64,7 +65,6 @@ fn handle_syscall() {
         pop rdi
         pop rax
         mov rsp, rbx // move our stack to the newly allocated one
-        push rbp // save current rbp / old rsp
         sti // enable interrupts"
         :: "{rbx}"(stack_ptr) : "rbx" : "intel", "volatile"); }
     let syscall: u64;
@@ -77,7 +77,8 @@ fn handle_syscall() {
         asm!("nop"
         :"={rax}"(syscall), "={rdi}"(arg0), "={rsi}"(arg1), "={rdx}"(arg2), "={r10}"(arg3) ::: "intel", "volatile");
     }
-    // println!("syscall {:x} {} {} {} {}", syscall, arg0, arg1, arg2, arg3);
+//    println!("syscall {:x} {:x} {:x} {:x} {:x}", syscall, arg0, arg1, arg2, arg3);
+//    let retval = 0i64;
     let retval: i64 = match syscall {
         0x595ca11a => sys0(arg0, arg1, arg2, arg3),
         0x595ca11b => sys1(arg0, arg1, arg2, arg3),
@@ -91,7 +92,7 @@ fn handle_syscall() {
     drop(syscall_stack); // we can now drop the syscall temp stack
     unsafe { asm!("\
         mov rax, rbx // restore syscall return value from rbx to rax
-        pop rsp // restore rsp which was pushed from rbp
+        mov rsp, rbp // restore rsp from rbp
         pop r15 // restore callee-saved registers
         pop r14
         pop r13

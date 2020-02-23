@@ -56,11 +56,11 @@ pub unsafe fn jmp_to_usermode(code: mem::VirtAddr, stack_end: mem::VirtAddr) {
     let (cs_idx, ds_idx) = gdt::set_usermode_segs();
     x86_64::instructions::tlb::flush_all(); // flush the TLB after address-space switch
     asm!("\
-    push rax // stack segment
-    push rsi // rsp
-    pushfq   // rflags
-    push rdx // code segment
-    push rdi // ret to virtual addr
+    push rax   // stack segment
+    push rsi   // rsp
+    push 0x200 // rflags (only interrupt bit set)
+    push rdx   // code segment
+    push rdi   // ret to virtual addr
     iretq"
     :: "{rdi}"(code.addr()), "{rsi}"(stack_end.addr()), "{dx}"(cs_idx), "{ax}"(ds_idx) :: "intel", "volatile");
 }

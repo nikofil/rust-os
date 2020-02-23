@@ -19,11 +19,11 @@ pub unsafe fn userspace_prog_1() {
         mov rax, 0x0
         prog1loop:
         inc rax
-        cmp rax, 0x4000000
+        cmp rax, 0x8000000
         jnz prog1loop // loop for some milliseconds
-        mov rdi, rsp // first syscall arg is rsp
         pop rax // pop syscall number from the stack
         inc rbx // increase loop counter
+        mov rdi, rsp // first syscall arg is rsp
         mov rsi, rbx // second syscall arg is the loop counter
         syscall // perform the syscall!
         jmp prog1start // do it all over
@@ -51,11 +51,11 @@ pub unsafe fn userspace_prog_2() {
         mov rax, 0x0
         prog2loop:
         inc rax
-        cmp rax, 0x4000000
+        cmp rax, 0x8000000
         jnz prog2loop // loop for some milliseconds
-        mov rdi, rsp // first syscall arg is rsp
         pop rax // pop syscall number from the stack
         inc rbx // increase loop counter
+        mov rdi, rsp // first syscall arg is rsp
         mov rsi, rbx // second syscall arg is the loop counter
         syscall // perform the syscall!
         jmp prog2start // do it all over
