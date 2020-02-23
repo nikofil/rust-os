@@ -103,13 +103,13 @@ pub fn start(boot_info: &'static BootInformation) -> ! {
         global_alloc::init_global_alloc(frame_alloc::BOOTINFO_ALLOCATOR.as_mut().unwrap());
     }
     set_color(Color::Green, Color::Black, false);
+    init_pics();
     let userspace_fn_1_in_kernel = mem::VirtAddr::new(userspace::userspace_prog_1 as *const () as u64);
     let userspace_fn_2_in_kernel = mem::VirtAddr::new(userspace::userspace_prog_2 as *const () as u64);
     unsafe {
         let sched = &scheduler::SCHEDULER;
         sched.schedule(userspace_fn_1_in_kernel);
         sched.schedule(userspace_fn_2_in_kernel);
-        init_pics();
         loop {
             sched.run_next();
         }

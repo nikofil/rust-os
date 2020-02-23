@@ -3,23 +3,23 @@ pub unsafe fn userspace_prog_1() {
         mov rbx, 0xf0000000
         prog1start:
         push 0x595ca11a // keep the syscall number in the stack
-        mov rbp, 0 // distinct values for each register
-        mov rax, 1
-        mov rcx, 3
-        mov rdx, 4
-        mov rdi, 6
-        mov r8, 7
-        mov r9, 8
-        mov r10, 9
-        mov r11, 10
-        mov r12, 11
-        mov r13, 12
-        mov r14, 13
-        mov r15, 14
-        mov rax, 0x0
+        mov rbp, 0x0 // distinct values for each register
+        mov rax, 0x1
+        mov rcx, 0x3
+        mov rdx, 0x4
+        mov rdi, 0x6
+        mov r8, 0x7
+        mov r9, 0x8
+        mov r10, 0x9
+        mov r11, 0x10
+        mov r12, 0x11
+        mov r13, 0x12
+        mov r14, 0x13
+        mov r15, 0x14
+        xor rax, rax
         prog1loop:
         inc rax
-        cmp rax, 0x8000000
+        cmp rax, 0x4000000
         jnz prog1loop // loop for some milliseconds
         pop rax // pop syscall number from the stack
         inc rbx // increase loop counter
@@ -35,23 +35,23 @@ pub unsafe fn userspace_prog_2() {
         mov rbx, 0
         prog2start:
         push 0x595ca11b // keep the syscall number in the stack
-        mov rbp, 100 // distinct values for each register
-        mov rax, 101
-        mov rcx, 103
-        mov rdx, 104
-        mov rdi, 106
-        mov r8, 107
-        mov r9, 108
-        mov r10, 109
-        mov r11, 110
-        mov r12, 111
-        mov r13, 112
-        mov r14, 113
-        mov r15, 114
-        mov rax, 0x0
+        mov rbp, 0x100 // distinct values for each register
+        mov rax, 0x101
+        mov rcx, 0x103
+        mov rdx, 0x104
+        mov rdi, 0x106
+        mov r8, 0x107
+        mov r9, 0x108
+        mov r10, 0x109
+        mov r11, 0x110
+        mov r12, 0x111
+        mov r13, 0x112
+        mov r14, 0x113
+        mov r15, 0x114
+        xor rax, rax
         prog2loop:
         inc rax
-        cmp rax, 0x8000000
+        cmp rax, 0x4000000
         jnz prog2loop // loop for some milliseconds
         pop rax // pop syscall number from the stack
         inc rbx // increase loop counter

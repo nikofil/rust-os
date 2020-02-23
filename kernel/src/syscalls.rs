@@ -77,8 +77,6 @@ fn handle_syscall() {
         asm!("nop"
         :"={rax}"(syscall), "={rdi}"(arg0), "={rsi}"(arg1), "={rdx}"(arg2), "={r10}"(arg3) ::: "intel", "volatile");
     }
-//    println!("syscall {:x} {:x} {:x} {:x} {:x}", syscall, arg0, arg1, arg2, arg3);
-//    let retval = 0i64;
     let retval: i64 = match syscall {
         0x595ca11a => sys0(arg0, arg1, arg2, arg3),
         0x595ca11b => sys1(arg0, arg1, arg2, arg3),

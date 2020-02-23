@@ -65,20 +65,23 @@ pub unsafe fn jmp_to_usermode(code: mem::VirtAddr, stack_end: mem::VirtAddr) {
     :: "{rdi}"(code.addr()), "{rsi}"(stack_end.addr()), "{dx}"(cs_idx), "{ax}"(ds_idx) :: "intel", "volatile");
 }
 
+#[derive(Clone, Debug)]
+enum TaskState { // a task's state can either be
+    SavedContext(Context), // a saved context
+    StartingInfo(mem::VirtAddr, mem::VirtAddr), // or a starting instruction and stack pointer
+}
+
 struct Task {
-    ctx: Option<Context>,
-    exec_base: mem::VirtAddr,
-    stack_end: mem::VirtAddr,
-    _stack_vec: Vec<u8>,
-    task_pt: Box<mem::PageTable>,
+    state: TaskState, // the current state of the task
+    task_pt: Box<mem::PageTable>, // the page table for this task
+    _stack_vec: Vec<u8>, // a vector to keep the task's stack space
 }
 
 impl Task {
-    pub fn new(exec_base: mem::VirtAddr, stack_end: mem::VirtAddr, _stack_vec: Vec<u8>, task_pt: Box<mem::PageTable>) -> Task {
+    pub fn new(exec_base: mem::VirtAddr, stack_end: mem::VirtAddr, _stack_vec: Vec<u8>,
+               task_pt: Box<mem::PageTable>) -> Task {
         Task {
-            ctx: None,
-            exec_base,
-            stack_end,
+            state: TaskState::StartingInfo(exec_base, stack_end),
             _stack_vec,
             task_pt,
         }
@@ -88,21 +91,21 @@ impl Task {
 impl Display for Task {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         unsafe {
-            write!(f, "PT: {}, Context: {:x?}", self.task_pt.phys_addr(), self.ctx)
+            write!(f, "PT: {}, Context: {:x?}", self.task_pt.phys_addr(), self.state)
         }
     }
 }
 
 pub struct Scheduler {
     tasks: Mutex<Vec<Task>>,
-    cur_task: Mutex<usize>,
+    cur_task: Mutex<Option<usize>>,
 }
 
 impl Scheduler {
     pub fn new() -> Scheduler {
         Scheduler {
             tasks: Mutex::new(Vec::new()),
-            cur_task: Mutex::new(usize::max_value()), // so that next task is 0
+            cur_task: Mutex::new(None), // so that next task is 0
         }
     }
 
@@ -135,29 +138,33 @@ impl Scheduler {
     }
 
     pub unsafe fn save_current_context(&self, ctxp: *const Context) {
-        let ctx = &*ctxp;
-        let cur_task = *self.cur_task.lock();
-        self.tasks.lock()[cur_task].ctx = Some(ctx.clone());
+        self.cur_task.lock().map(|cur_task_idx| { // if there is a current task
+            let ctx = (*ctxp).clone();
+            self.tasks.lock()[cur_task_idx].state = TaskState::SavedContext(ctx); // replace its context with the given one
+        });
     }
 
     pub unsafe fn run_next(&self) {
-        let ctx: Option<Context>;
-        let exec_base: mem::VirtAddr;
-        let stack_end: mem::VirtAddr;
-        {
-            let next_task = (*self.cur_task.lock() + 1) % self.tasks.lock().len();
-            *self.cur_task.lock() = next_task;
-            let task = &self.tasks.lock()[next_task];
-            serial_println!("Switching to task #{} ({})", next_task, task);
-            ctx = task.ctx.clone();
-            exec_base = task.exec_base.clone();
-            stack_end = task.stack_end.clone();
-            task.task_pt.enable();
-        }
-        if let Some(ctx) = ctx.as_ref() {
-            restore_context(ctx);
-        } else {
-            jmp_to_usermode(exec_base, stack_end);
+        let tasks_len = self.tasks.lock().len(); // how many tasks are available
+        if tasks_len > 0 {
+            let task_state = {
+                let mut cur_task_opt = self.cur_task.lock(); // lock the current task index
+                let cur_task = cur_task_opt.get_or_insert(0); // default to 0
+                let next_task = (*cur_task + 1) % tasks_len; // next task index
+                *cur_task = next_task;
+                let task = &self.tasks.lock()[next_task]; // get the next task
+                serial_println!("Switching to task #{} ({})", next_task, task);
+                task.task_pt.enable(); // enable task's page table
+                task.state.clone() // clone task state information
+            }; // release held locks
+            match task_state {
+                TaskState::SavedContext(ctx) => {
+                    restore_context(&ctx) // either restore the saved context
+                },
+                TaskState::StartingInfo(exec_base, stack_end) => {
+                    jmp_to_usermode(exec_base, stack_end) // or initialize the task with the given instruction, stack pointers
+                },
+            }
         }
     }
 }
