@@ -107,29 +107,31 @@ impl Scheduler {
     }
 
     pub unsafe fn schedule(&self, fn_addr: mem::VirtAddr) {
-        let userspace_fn_phys = fn_addr.to_phys().unwrap().0;
+        let userspace_fn_phys = fn_addr.to_phys().unwrap().0; // virtual address to physical
         let page_phys_start = (userspace_fn_phys.addr() >> 12) << 12; // zero out page offset to get which page we should map
-        let fn_page_offset = userspace_fn_phys.addr() - page_phys_start;
-        let userspace_fn_virt_base = 0x400000;
-        let userspace_fn_virt = userspace_fn_virt_base + fn_page_offset;
+        let fn_page_offset = userspace_fn_phys.addr() - page_phys_start; // offset of function from page start
+        let userspace_fn_virt_base = 0x400000; // target virtual address of page
+        let userspace_fn_virt = userspace_fn_virt_base + fn_page_offset; // target virtual address of function
         serial_println!("Mapping {:x} to {:x}", page_phys_start, userspace_fn_virt_base);
-        let mut task_pt = mem::PageTable::new();
+        let mut task_pt = mem::PageTable::new(); // copy over the kernel's page tables
         task_pt.map_virt_to_phys(
             mem::VirtAddr::new(userspace_fn_virt_base),
             mem::PhysAddr::new(page_phys_start),
-            mem::BIT_PRESENT | mem::BIT_USER);
+            mem::BIT_PRESENT | mem::BIT_USER); // map the program's code
         task_pt.map_virt_to_phys(
             mem::VirtAddr::new(userspace_fn_virt_base).offset(0x1000),
             mem::PhysAddr::new(page_phys_start).offset(0x1000),
-            mem::BIT_PRESENT | mem::BIT_USER);
-        let mut stack_space: Vec<u8> = Vec::with_capacity(0x1000);
+            mem::BIT_PRESENT | mem::BIT_USER); // also map another page to be sure we got the entire function in
+        let mut stack_space: Vec<u8> = Vec::with_capacity(0x1000); // allocate some memory to use for the stack
         let stack_space_phys = mem::VirtAddr::new(stack_space.as_mut_ptr() as *const u8 as u64).to_phys().unwrap().0;
+        // take physical address of stack
         task_pt.map_virt_to_phys(
             mem::VirtAddr::new(0x800000),
             stack_space_phys,
-            mem::BIT_PRESENT | mem::BIT_WRITABLE | mem::BIT_USER);
-        let task = Task::new(mem::VirtAddr::new(userspace_fn_virt), mem::VirtAddr::new(0x801000), stack_space, task_pt);
-        self.tasks.lock().push(task);
+            mem::BIT_PRESENT | mem::BIT_WRITABLE | mem::BIT_USER); // map the stack memory to 0x800000
+        let task = Task::new(mem::VirtAddr::new(userspace_fn_virt),
+                             mem::VirtAddr::new(0x801000), stack_space, task_pt); // create task struct
+        self.tasks.lock().push(task); // push task struct to list of tasks
     }
 
     pub unsafe fn save_current_context(&self, ctxp: *const Context) {
