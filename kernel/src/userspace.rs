@@ -1,3 +1,4 @@
+#[naked]
 pub unsafe fn userspace_prog_1() {
     asm!("\
         mov rbx, 0xf0000000
@@ -27,9 +28,10 @@ pub unsafe fn userspace_prog_1() {
         mov rsi, rbx // second syscall arg is the loop counter
         syscall // perform the syscall!
         jmp prog1start // do it all over
-    ":::: "volatile", "intel");
+    ");
 }
 
+#[naked]
 pub unsafe fn userspace_prog_2() {
     asm!("\
         mov rbx, 0
@@ -59,5 +61,5 @@ pub unsafe fn userspace_prog_2() {
         mov rsi, rbx // second syscall arg is the loop counter
         syscall // perform the syscall!
         jmp prog2start // do it all over
-    ":::: "volatile", "intel");
+    ");
 }

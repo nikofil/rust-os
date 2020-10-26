@@ -12,28 +12,28 @@ pub unsafe fn init_syscalls() {
     asm!("\
     xor rdx, rdx
     mov rax, 0x200
-    wrmsr" :: "{rcx}"(MSR_FMASK) : "rdx" : "intel", "volatile");
+    wrmsr", in("rcx") MSR_FMASK, out("rdx") _);
     // write handler address to AMD's MSR_LSTAR register
     asm!("\
     mov rdx, rax
     shr rdx, 32
-    wrmsr" :: "{rax}"(handler_addr), "{rcx}"(MSR_LSTAR) : "rdx" : "intel", "volatile");
+    wrmsr", in("rax") handler_addr, in("rcx") MSR_LSTAR, out("rdx") _);
     // write segments to use on syscall/sysret to AMD'S MSR_STAR register
     asm!("\
     xor rax, rax
     mov rdx, 0x230008 // use seg selectors 8, 16 for syscall and 43, 51 for sysret
-    wrmsr" :: "{rcx}"(MSR_STAR) : "rax", "rdx" : "intel", "volatile");
+    wrmsr", in("rcx") MSR_STAR, out("rax") _, out("rdx") _);
 }
 
 #[inline(never)]
 fn sys0(a: u64, b: u64, c: u64, d: u64) -> i64 {
-    println!("sys0 {:x} {} {} {}", a, b, c, d);
+    println!("sys0 {:x} {:x} {:x} {:x}", a, b, c, d);
     123
 }
 
 #[inline(never)]
 fn sys1(a: u64, b: u64, c: u64, d: u64) -> i64 {
-    println!("sys1 {:x} {} {} {}", a, b, c, d);
+    println!("sys1 {:x} {:x} {:x} {:x}", a, b, c, d);
     456
 }
 
@@ -56,7 +56,7 @@ fn handle_syscall() {
         push rsi
         push rdx
         push r10"
-        :::: "intel", "volatile");
+        );
     }
     let syscall_stack: Vec<u8> = Vec::with_capacity(0x10000);
     let stack_ptr = syscall_stack.as_ptr();
@@ -68,8 +68,8 @@ fn handle_syscall() {
         pop rdi
         pop rax
         mov rsp, rbx // move our stack to the newly allocated one
-        sti // enable interrupts"
-        :: "{rbx}"(stack_ptr) : "rbx" : "intel", "volatile");
+        sti // enable interrupts",
+        inout("rbx") stack_ptr => _);
     }
     let syscall: u64;
     let arg0: u64;
@@ -78,8 +78,8 @@ fn handle_syscall() {
     let arg3: u64;
     unsafe {
         // move the syscall arguments from registers to variables
-        asm!("nop"
-        :"={rax}"(syscall), "={rdi}"(arg0), "={rsi}"(arg1), "={rdx}"(arg2), "={r10}"(arg3) ::: "intel", "volatile");
+        asm!("nop",
+        out("rax") syscall, out("rdi") arg0, out("rsi") arg1, out("rdx") arg2, out("r10") arg3);
     }
     let retval: i64 = match syscall {
         0x595ca11a => sys0(arg0, arg1, arg2, arg3),
@@ -88,9 +88,10 @@ fn handle_syscall() {
     };
     unsafe {
         asm!("\
-        mov rbx, $0 // save return value into rbx so that it's maintained through free
-        cli" // disable interrupts while restoring the stack
-        :: "r"(retval) :: "intel", "volatile");
+        mov rbx, {} // save return value into rbx so that it's maintained through free
+        cli",
+        in(reg) retval // disable interrupts while restoring the stack
+        );
     }
     drop(syscall_stack); // we can now drop the syscall temp stack
     unsafe {
@@ -105,7 +106,7 @@ fn handle_syscall() {
         pop rbp // restore stack and registers for sysretq
         pop r11
         pop rcx
-        sysretq // back to userland"
-        :::: "intel", "volatile");
+        sysretq // back to userland",
+        options(noreturn));
     }
 }

@@ -20,7 +20,7 @@ pub struct SimpleAllocator {
 unsafe impl core::marker::Send for SimpleAllocator {} // shh it's ok pointers are thread-safe
 
 impl SimpleAllocator {
-    pub unsafe fn new(boot_info: &BootInformation) -> SimpleAllocator {
+    pub unsafe fn init(boot_info: &'static BootInformation) {
         let mem_tag = boot_info
             .memory_map_tag()
             .expect("Must have memory map tag");
@@ -34,7 +34,8 @@ impl SimpleAllocator {
             next_page: 0,
         };
         alloc.next_area();
-        alloc
+
+        BOOTINFO_ALLOCATOR.replace(alloc);
     }
 
     fn next_area(&mut self) {

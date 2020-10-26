@@ -31,24 +31,22 @@ pub struct Context {
     pub ss: u64,
 }
 
-#[naked]
 #[inline(always)]
 pub unsafe fn get_context() -> *const Context {
     let ctxp: *const Context;
     asm!("push r15; push r14; push r13; push r12; push r11; push r10; push r9;\
     push r8; push rdi; push rsi; push rdx; push rcx; push rbx; push rax; push rbp;\
-    mov $0, rsp; sub rsp, 0x400;"
-    : "=r"(ctxp) ::: "intel", "volatile");
+    mov {}, rsp; sub rsp, 0x400;",
+    out(reg) ctxp);
     ctxp
 }
 
-#[naked]
 #[inline(always)]
 pub unsafe fn restore_context(ctxr: &Context) {
-    asm!("mov rsp, $0;\
+    asm!("mov rsp, {};\
     pop rbp; pop rax; pop rbx; pop rcx; pop rdx; pop rsi; pop rdi; pop r8; pop r9;\
-    pop r10; pop r11; pop r12; pop r13; pop r14; pop r15; iretq;"
-    :: "r"(ctxr) :: "intel", "volatile");
+    pop r10; pop r11; pop r12; pop r13; pop r14; pop r15; iretq;",
+    in(reg) ctxr);
 }
 
 #[inline(never)]
@@ -61,8 +59,8 @@ pub unsafe fn jmp_to_usermode(code: mem::VirtAddr, stack_end: mem::VirtAddr) {
     push 0x200 // rflags (only interrupt bit set)
     push rdx   // code segment
     push rdi   // ret to virtual addr
-    iretq"
-    :: "{rdi}"(code.addr()), "{rsi}"(stack_end.addr()), "{dx}"(cs_idx), "{ax}"(ds_idx) :: "intel", "volatile");
+    iretq",
+    in("rdi") code.addr(), in("rsi") stack_end.addr(), in("dx") cs_idx, in("ax") ds_idx);
 }
 
 #[derive(Clone, Debug)]

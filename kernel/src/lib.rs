@@ -51,9 +51,9 @@ fn panic(info: &PanicInfo) -> ! {
     loop {}
 }
 
-#[naked]
 #[no_mangle]
-pub extern "C" fn ua64_mode_start(multiboot_info_addr: u64) -> ! {
+pub extern "C" fn ua64_mode_start() -> ! {
+    let mut multiboot_info_addr: u64;
     unsafe {
         asm!("\
             mov ax, 0
@@ -62,7 +62,7 @@ pub extern "C" fn ua64_mode_start(multiboot_info_addr: u64) -> ! {
             mov es, ax
             mov fs, ax
             mov gs, ax
-        " :::: "intel");
+        ", out("rdi") multiboot_info_addr);
     }
     let boot_info = unsafe {
         multiboot2::load(
@@ -98,8 +98,7 @@ pub fn start(boot_info: &'static BootInformation) -> ! {
     }
     println!("Kernel end at: {:x}", boot_info.end_address());
     unsafe {
-        let alloc = frame_alloc::SimpleAllocator::new(&boot_info);
-        frame_alloc::BOOTINFO_ALLOCATOR.replace(alloc);
+        frame_alloc::SimpleAllocator::init(boot_info);
         global_alloc::init_global_alloc(frame_alloc::BOOTINFO_ALLOCATOR.as_mut().unwrap());
     }
     set_color(Color::Green, Color::Black, false);

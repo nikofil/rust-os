@@ -23,10 +23,10 @@ lazy_static! {
 macro_rules! irq_fn {
     ($f: ident, $i: literal, $e:expr) => {
         unsafe extern "x86-interrupt" fn $f(_stack_frame: &mut InterruptStackFrame) {
-            asm!("cli" :::: "intel", "volatile");
+            asm!("cli");
             $e();
             end_of_interrupt($i);
-            asm!("sti" :::: "intel", "volatile");
+            asm!("sti");
         }
     }
 }

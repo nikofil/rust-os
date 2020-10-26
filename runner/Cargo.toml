@@ -7,8 +7,8 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
 "rust-os" = { path = "../kernel", features = ["no-panic-handler"] }
-bootloader = { version = "0.8.0", features = ["map_physical_memory"] }
-x86_64 = "0.7.5"
+bootloader = { version = "0.9.8", features = ["map_physical_memory"] }
+x86_64 = "0.12.2"
 spin = "0.5.2"
 
 [dependencies.lazy_static]

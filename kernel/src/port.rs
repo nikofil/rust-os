@@ -9,36 +9,36 @@ pub trait InOut {
 impl InOut for u8 {
     unsafe fn port_in(port: u16) -> Self {
         let mut val;
-        asm!("in al, dx" : "={al}"(val) : "{dx}"(port) :: "intel", "volatile");
+        asm!("in al, dx", out("al") val, in("dx") port);
         return val;
     }
 
     unsafe fn port_out(port: u16, val: Self) {
-        asm!("out dx, al" :: "{al}"(val), "{dx}"(port) :: "intel", "volatile");
+        asm!("out dx, al", in("al") val, in("dx") port);
     }
 }
 
 impl InOut for u16 {
     unsafe fn port_in(port: u16) -> Self {
         let mut val;
-        asm!("in ax, dx" : "={ax}"(val) : "{dx}"(port) :: "intel", "volatile");
+        asm!("in ax, dx", out("ax") val, in("dx") port);
         return val;
     }
 
     unsafe fn port_out(port: u16, val: Self) {
-        asm!("out dx, ax" :: "{ax}"(val), "{dx}"(port) :: "intel", "volatile");
+        asm!("out dx, ax", in("ax") val, in("dx") port);
     }
 }
 
 impl InOut for u32 {
     unsafe fn port_in(port: u16) -> Self {
         let mut val;
-        asm!("in eax, dx" : "={eax}"(val) : "{dx}"(port) :: "intel", "volatile");
+        asm!("in eax, dx", out("eax") val, in("dx") port);
         return val;
     }
 
     unsafe fn port_out(port: u16, val: Self) {
-        asm!("out dx, eax" :: "{eax}"(val), "{dx}"(port) :: "intel", "volatile");
+        asm!("out dx, eax", in("eax") val, in("dx") port);
     }
 }
 
@@ -99,6 +99,10 @@ pub fn init_pics() {
 
     println!(" - PIC interrupt masks: master {} slave {}", a1, a2);
 
+
+    unsafe {
+        asm!("cli");
+    }
     // begin initialization
     master_cmd.write(ICW1_INIT + ICW1_ICW4);
     wait();
@@ -129,7 +133,7 @@ pub fn init_pics() {
 
     println!(" - Enabling interrupts");
     unsafe {
-        asm!("sti" ::::: "intel", "volatile");
+        asm!("sti");
     }
     println!(" - Interrupts enabled");
 }

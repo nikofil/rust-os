@@ -91,7 +91,7 @@ impl Display for PTEntry {
 
 pub unsafe fn get_page_table() -> &'static mut PageTable {
     let mut p4: u64;
-    asm!("mov $0, cr3" : "=r"(p4) ::: "intel", "volatile");
+    asm!("mov rax, cr3", out("rax") p4);
     &mut *((p4 + VIRT_OFFSET) as *mut PageTable)
 }
 
@@ -120,14 +120,14 @@ impl PageTable {
 
     pub unsafe fn enable(&self) {
         let phys_addr = self.phys_addr().addr();
-        asm!("mov $0, %cr3" :: "{rax}"(phys_addr) :: "volatile");
+        asm!("mov cr3, rax", in("rax") phys_addr);
     }
 
     unsafe fn alloc_page() -> PhysAddr {
         let frame: Box<EmptyFrame> = Box::new([0; FRAME_SIZE as usize]);
         VirtAddr::new(Box::into_raw(frame) as u64)
             .to_phys()
-            .expect("Could not convert allocated to physical")
+            .unwrap()
             .0
     }
 

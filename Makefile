@@ -47,6 +47,6 @@ target/arch/$(arch)/%.o: boot/$(arch)/%.asm
 
 # compile rust OS
 $(rust_os): FORCE
-	@cargo xbuild -p rust-os --release
+	@cargo build -Z build-std=core,alloc -Z build-std-features=compiler-builtins-mem -p rust-os --release
 
 FORCE: ;
