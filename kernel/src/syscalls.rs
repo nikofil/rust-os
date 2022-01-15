@@ -67,9 +67,9 @@ fn handle_syscall() {
         pop rsi
         pop rdi
         pop rax
-        mov rsp, rbx // move our stack to the newly allocated one
+        mov rsp, r9 // move our stack to the newly allocated one
         sti // enable interrupts",
-        inout("rbx") stack_ptr => _);
+        inout("r9") stack_ptr => _);
     }
     let syscall: u64;
     let arg0: u64;
