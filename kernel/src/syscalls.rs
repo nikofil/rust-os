@@ -37,7 +37,23 @@ fn sys1(a: u64, b: u64, c: u64, d: u64) -> i64 {
     456
 }
 
-#[naked]
+
+#[inline(never)]
+fn sys_hello(a: u64, b: u64, c: u64, d: u64) -> i64 {
+    println!("hello world! {:x} {:x} {:x} {:x}", a, b, c, d);
+    0
+}
+
+#[inline(never)]
+fn sys_unhandled() -> i64 {
+    // println!("bad syscall number!");
+    panic!("bad syscall number!");
+    0xdeadbeef
+}
+
+
+// naked functions are supposed to be a single asm block
+// #[naked]
 fn handle_syscall() {
     unsafe {
         asm!("\
@@ -84,7 +100,8 @@ fn handle_syscall() {
     let retval: i64 = match syscall {
         0x595ca11a => sys0(arg0, arg1, arg2, arg3),
         0x595ca11b => sys1(arg0, arg1, arg2, arg3),
-        _ => -1,
+        0x42 => sys_hello(arg0, arg1, arg2, arg3),
+        _ => sys_unhandled(),
     };
     unsafe {
         asm!("\

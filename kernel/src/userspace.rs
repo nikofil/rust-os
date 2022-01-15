@@ -6,6 +6,7 @@ pub unsafe fn userspace_prog_1() {
     = help: only local labels of the form `<number>:` should be used in inline asm
     https://doc.rust-lang.org/unstable-book/library-features/asm.html#labels
     */
+    
     asm!("\
         mov rbx, 0xf0000000
         2: // prog1 start
@@ -34,7 +35,7 @@ pub unsafe fn userspace_prog_1() {
         mov rsi, rbx // second syscall arg is the loop counter
         syscall // perform the syscall!
         jmp 2b // do it all over
-    ");
+    ", options(noreturn));
 }
 
 #[naked]
@@ -67,5 +68,24 @@ pub unsafe fn userspace_prog_2() {
         mov rsi, rbx // second syscall arg is the loop counter
         syscall // perform the syscall!
         jmp 4b // do it all over
-    ");
+    ",options(noreturn));
+}
+
+#[naked]
+pub unsafe fn userspace_prog_hello() {
+    asm!("\
+            42:
+            mov rax, 0x42 // syscall number in rax
+            mov rdi, rsp // first syscall arg is rsp
+            mov rsi, 0 // second syscall arg is some number
+
+            xor rcx,rcx
+            43: // make a loop so it doesn go forever?
+            inc rcx
+            cmp rcx, 0x4000000
+            jnz 43b //loop for some milliseconds
+
+            syscall // perform the syscall!
+            jmp 42b // 1 for the label 1: , b for before (the one closet before)
+        ",options(noreturn));
 }
