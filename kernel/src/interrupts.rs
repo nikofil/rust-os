@@ -5,6 +5,9 @@ use lazy_static::lazy_static;
 use spin::Mutex;
 
 use x86_64::instructions::segmentation;
+// use x86_64::registers::Segment;
+use x86_64::registers::segmentation::Segment;
+use x86_64::registers::segmentation::CS;
 use x86_64::instructions::tables::{lidt, DescriptorTablePointer};
 use x86_64::structures::gdt::SegmentSelector;
 use x86_64::structures::idt::InterruptStackFrame;
@@ -55,6 +58,7 @@ extern "x86-interrupt" fn double_fault(stack_frame: &mut InterruptStackFrame, er
     loop {}
 }
 
+// this naked is necessary (as is for most/all interrupts)
 #[naked]
 unsafe extern "C" fn timer(_stack_frame: &mut InterruptStackFrame) {
     let ctx = scheduler::get_context();
@@ -83,14 +87,14 @@ lazy_static! {
         macro_rules! idt_entry {
             ($i:literal, $e:expr) => {
                 vectors[$i] =
-                    IDTEntry::new($e as *const IDTHandler, segmentation::cs(), 0, true, 0);
+                    IDTEntry::new($e as *const IDTHandler, CS::get_reg(), 0, true, 0);
             };
         }
         idt_entry!(0, div_by_zero);
         idt_entry!(3, breakpoint);
         vectors[8] = IDTEntry::new(
             double_fault as *const IDTHandler,
-            segmentation::cs(),
+            CS::get_reg(),
             crate::gdt::DOUBLE_FAULT_IST_INDEX + 1,
             true,
             0,
@@ -175,7 +179,7 @@ impl IDTEntry {
             handler_mid: 0,
             handler_hi: 0,
             options: 0,
-            gdt_selector: segmentation::cs().0,
+            gdt_selector: CS::get_reg().0,
             reserved: 0,
         }
     }
