@@ -12,6 +12,7 @@ use x86_64::structures::idt::InterruptStackFrame;
 use pc_keyboard::{layouts, DecodedKey, Keyboard, ScancodeSet1};
 
 use core::mem::size_of;
+use x86_64::VirtAddr;
 
 type IDTHandler = extern "x86-interrupt" fn();
 
@@ -108,7 +109,9 @@ struct InterruptDescriptorTable([IDTEntry; 0x100]);
 impl InterruptDescriptorTable {
     fn load(&'static self) {
         let idt_ptr = DescriptorTablePointer {
-            base: self as *const _ as u64,
+            // base: self as *const _ as u64,
+            //^^^^^^^^^^^^^^^^^^^^^^^ expected struct `x86_64::VirtAddr`, found `u64`
+            base:  VirtAddr::from_ptr(self as *const _),//_ as x86_64::VirtAddr,
             limit: (size_of::<Self>() - 1) as u16,
         };
         println!(" - Setting up IDT with {} entries", INTERRUPT_TABLE.0.len());
