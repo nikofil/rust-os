@@ -11,13 +11,13 @@ crate-type = ["staticlib"]
 [dependencies]
 spin = "0.5.2"
 uart_16550 = "0.2.10"
-x86_64 = "0.12.0"
+x86_64 = "0.14.7"
 pc-keyboard = "0.3.1"
 multiboot2 = "0.1.0"
 if_chain = "1.0.0"
 
 [dependencies.lazy_static]
-version = "1.0"
+version = "1.4.0"
 features = ["spin_no_std"]
 
 [features]

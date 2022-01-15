@@ -1,6 +1,6 @@
 use crate::println;
 use lazy_static::lazy_static;
-use x86_64::instructions::segmentation::{load_ds, set_cs};
+use x86_64::instructions::segmentation::{Segment, CS,DS};
 use x86_64::instructions::tables::load_tss;
 use x86_64::structures::gdt::{
     Descriptor, DescriptorFlags, GlobalDescriptorTable, SegmentSelector,
@@ -56,8 +56,10 @@ pub fn init_gdt() {
         &GDT.0 as *const _, &*TSS as *const _, stack, user_stack, GDT.1[0].0, GDT.1[1].0
     );
     unsafe {
-        set_cs(GDT.1[0]);
-        load_ds(GDT.1[1]);
+        CS::set_reg(GDT.1[0]);
+        // set_cs(GDT.1[0]);
+        // load_ds(GDT.1[1]);
+        DS::set_reg(GDT.1[1]);
         load_tss(GDT.1[2]);
     }
 }
@@ -68,6 +70,7 @@ pub unsafe fn set_usermode_segs() -> (u16, u16) {
     let (mut cs, mut ds) = (GDT.1[4], GDT.1[3]);
     cs.0 |= PrivilegeLevel::Ring3 as u16;
     ds.0 |= PrivilegeLevel::Ring3 as u16;
-    load_ds(ds);
+    // load_ds(ds);
+    DS::set_reg(ds);
     (cs.0, ds.0)
 }

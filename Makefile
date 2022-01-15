@@ -33,7 +33,7 @@ $(iso): $(kernel) $(grub_cfg)
 	@mkdir -p target/isofiles/boot/grub
 	@cp $(kernel) target/isofiles/boot/kernel.bin
 	@cp $(grub_cfg) target/isofiles/boot/grub
-	@grub-mkrescue -o $(iso) target/isofiles 2> /dev/null
+	@grub-mkrescue -o $(iso) target/isofiles # 2> /dev/null
 	@rm -r target/isofiles
 
 $(kernel): $(rust_os) $(assembly_object_files) $(linker_script)
