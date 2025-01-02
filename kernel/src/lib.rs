@@ -107,10 +107,13 @@ pub fn start(boot_info: &'static BootInformation) -> ! {
         mem::VirtAddr::new(userspace::userspace_prog_1 as *const () as u64);
     let userspace_fn_2_in_kernel =
         mem::VirtAddr::new(userspace::userspace_prog_2 as *const () as u64);
+    let userspace_fn_hello_in_kernel =
+        mem::VirtAddr::new(userspace::userspace_prog_hello as *const () as u64);
     unsafe {
         let sched = &scheduler::SCHEDULER;
         sched.schedule(userspace_fn_1_in_kernel);
         sched.schedule(userspace_fn_2_in_kernel);
+        sched.schedule(userspace_fn_hello_in_kernel);
         loop {
             sched.run_next();
         }
