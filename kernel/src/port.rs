@@ -1,4 +1,5 @@
 use crate::println;
+use core::arch::asm;
 use core::marker::PhantomData;
 
 pub trait InOut {

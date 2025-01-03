@@ -1,10 +1,10 @@
+use core::arch::asm;
 use crate::port::{end_of_interrupt, Port};
 use crate::scheduler;
 use crate::{print, println};
 use lazy_static::lazy_static;
 use spin::Mutex;
 
-use x86_64::instructions::segmentation;
 // use x86_64::registers::Segment;
 use x86_64::registers::segmentation::Segment;
 use x86_64::registers::segmentation::CS;
@@ -59,8 +59,10 @@ extern "x86-interrupt" fn double_fault(stack_frame: &mut InterruptStackFrame, er
 }
 
 // this naked is necessary (as is for most/all interrupts)
-#[naked]
-unsafe extern "C" fn timer(_stack_frame: &mut InterruptStackFrame) {
+// #[naked]
+unsafe extern "x86-interrupt" fn timer(_stack_frame: &mut InterruptStackFrame) {
+    // TODO fix this shit
+    asm!("pop r11;pop r11;pop r11;pop r11;pop r11;pop r11;pop r11;pop r11;pop r11;pop r11;pop r11;");
     let ctx = scheduler::get_context();
     scheduler::SCHEDULER.save_current_context(ctx);
     end_of_interrupt(32);

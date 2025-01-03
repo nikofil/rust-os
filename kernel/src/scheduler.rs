@@ -1,3 +1,4 @@
+use core::arch::asm;
 use crate::gdt;
 use crate::mem;
 use crate::serial_println;

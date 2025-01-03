@@ -1,8 +1,10 @@
 use crate::mem::{PhysAddr, VirtAddr, FRAME_SIZE};
 use crate::serial_println;
 use core::cmp::max;
+use core::convert::TryInto;
+use core::slice::Iter;
 use multiboot2::BootInformation;
-use multiboot2::MemoryAreaIter;
+use multiboot2::MemoryArea;
 
 pub static mut BOOTINFO_ALLOCATOR: Option<SimpleAllocator> = None;
 
@@ -12,25 +14,26 @@ pub trait FrameSingleAllocator: Send {
 
 pub struct SimpleAllocator {
     kernel_end_phys: u64, // end address of our kernel sections (don't write before this!)
-    mem_areas: MemoryAreaIter, // iter of memory areas
     cur_area: Option<(u64, u64)>, // currently used area's bounds
+    mem_areas: [MemoryArea; 8], // memory areas from multiboot
+    idx_next: usize, // current index in memory areas
     next_page: usize,     // next page no. in this area to return
 }
 
 unsafe impl core::marker::Send for SimpleAllocator {} // shh it's ok pointers are thread-safe
 
 impl SimpleAllocator {
-    pub unsafe fn init(boot_info: &'static BootInformation) {
+    pub unsafe fn init(boot_info: BootInformation) {
+        let kernel_end = boot_info.end_address() as u64;
+        let kernel_end_phys = VirtAddr::new(kernel_end).to_phys().unwrap().0.addr();
         let mem_tag = boot_info
             .memory_map_tag()
             .expect("Must have memory map tag");
-        let mem_areas = mem_tag.memory_areas();
-        let kernel_end = boot_info.end_address() as u64;
-        let kernel_end_phys = VirtAddr::new(kernel_end).to_phys().unwrap().0.addr();
         let mut alloc = SimpleAllocator {
             kernel_end_phys,
-            mem_areas,
             cur_area: None,
+            mem_areas: mem_tag.memory_areas().try_into().unwrap(),
+            idx_next: 0,
             next_page: 0,
         };
         alloc.next_area();
@@ -38,12 +41,19 @@ impl SimpleAllocator {
         BOOTINFO_ALLOCATOR.replace(alloc);
     }
 
-    fn next_area(&mut self) {
+    fn next_area(&mut self) -> Option<(u64, u64)> {
         self.next_page = 0;
-        if let Some(mem_area) = self.mem_areas.next() {
+
+        if self.idx_next >= self.mem_areas.len() {
+            self.cur_area = None;
+            return None;
+        }
+        // TODO fix all this crap
+
+        let mem_area = self.mem_areas[self.idx_next];
             // get base addr and length for current area
-            let base_addr = mem_area.base_addr;
-            let area_len = mem_area.length;
+            let base_addr = mem_area.start_address();
+            let area_len = mem_area.size();
             // start after kernel end
             let mem_start = max(base_addr, self.kernel_end_phys);
             let mem_end = base_addr + area_len;
@@ -58,9 +68,9 @@ impl SimpleAllocator {
                 end_addr - start_addr
             );
             self.cur_area = Some((start_addr, end_addr));
-        } else {
-            self.cur_area = None; // out of mem areas :(
-        };
+
+        self.idx_next += 1;
+        self.cur_area
     }
 }
 
@@ -75,7 +85,7 @@ impl FrameSingleAllocator for SimpleAllocator {
             Some(frame)
         } else {
             // go to next area and try again
-            self.next_area();
+            self.next_area()?;
             self.allocate()
         }
     }

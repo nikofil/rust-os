@@ -40,6 +40,13 @@ TODO
 
 ## How to run
 
+Need to install some stuff first:
+```
+sudo apt install grub-pc-bin xorriso nasm qemu-system
+rustup toolchain install nightly
+rustup default nightly
+```
+
 `make run`  
 Might break between Rust toolchains :(  
 Last tested with `rustc 1.50.0-nightly (1700ca07c 2020-12-08)`

@@ -1,3 +1,4 @@
+use core::arch::asm;
 use crate::println;
 use alloc::vec::Vec;
 
@@ -46,9 +47,7 @@ fn sys_hello(a: u64, b: u64, c: u64, d: u64) -> i64 {
 
 #[inline(never)]
 fn sys_unhandled() -> i64 {
-    // println!("bad syscall number!");
     panic!("bad syscall number!");
-    0xdeadbeef
 }
 
 

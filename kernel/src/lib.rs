@@ -1,6 +1,4 @@
 #![no_std]
-#![feature(asm)]
-#![feature(lang_items)]
 #![feature(naked_functions)]
 #![feature(abi_x86_interrupt)]
 #![feature(alloc_error_handler)]
@@ -23,6 +21,7 @@ pub mod syscalls;
 mod userspace;
 pub mod vga_buffer;
 
+use core::arch::asm;
 use gdt::init_gdt;
 use interrupts::setup_idt;
 use vga_buffer::cls;
@@ -33,7 +32,7 @@ use crate::vga_buffer::Color;
 
 #[cfg(not(feature = "no-panic-handler"))]
 use core::panic::PanicInfo;
-use multiboot2::BootInformation;
+use multiboot2::{BootInformationHeader, BootInformation};
 
 #[global_allocator]
 static ALLOCATOR: global_alloc::Allocator = global_alloc::Allocator;
@@ -65,17 +64,17 @@ pub extern "C" fn ua64_mode_start() -> ! {
         ", out("rdi") multiboot_info_addr);
     }
     let boot_info = unsafe {
-        multiboot2::load(
+        BootInformation::load(
             mem::PhysAddr::new(multiboot_info_addr)
                 .to_virt()
                 .unwrap()
-                .addr() as usize,
-        )
+                .addr() as *const BootInformationHeader,
+        ).unwrap_unchecked()
     };
     start(boot_info);
 }
 
-pub fn start(boot_info: &'static BootInformation) -> ! {
+pub fn start(boot_info: BootInformation) -> ! {
     cls();
     init_gdt();
     setup_idt();

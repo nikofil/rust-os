@@ -18,12 +18,12 @@ lazy_static! {
         let mut tss = TaskStateSegment::new();
         tss.interrupt_stack_table[DOUBLE_FAULT_IST_INDEX as usize] = {
             let stack_start = VirtAddr::from_ptr(unsafe { &STACK });
-            let stack_end = stack_start + STACK_SIZE;
+            let stack_end = stack_start + STACK_SIZE as u64;
             stack_end
         };
         tss.privilege_stack_table[0] = {
             let stack_start = VirtAddr::from_ptr(unsafe { &PRIV_TSS_STACK });
-            let stack_end = stack_start + STACK_SIZE;
+            let stack_end = stack_start + STACK_SIZE as u64;
             stack_end
         };
         tss
@@ -35,11 +35,11 @@ lazy_static! {
         let mut gdt = GlobalDescriptorTable::new();
         let kernel_data_flags =
             DescriptorFlags::USER_SEGMENT | DescriptorFlags::PRESENT | DescriptorFlags::WRITABLE;
-        let code_sel = gdt.add_entry(Descriptor::kernel_code_segment());
-        let data_sel = gdt.add_entry(Descriptor::UserSegment(kernel_data_flags.bits()));
-        let tss_sel = gdt.add_entry(Descriptor::tss_segment(&TSS));
-        let user_data_sel = gdt.add_entry(Descriptor::user_data_segment());
-        let user_code_sel = gdt.add_entry(Descriptor::user_code_segment());
+        let code_sel = gdt.append(Descriptor::kernel_code_segment());
+        let data_sel = gdt.append(Descriptor::UserSegment(kernel_data_flags.bits()));
+        let tss_sel = gdt.append(Descriptor::tss_segment(&TSS));
+        let user_data_sel = gdt.append(Descriptor::user_data_segment());
+        let user_code_sel = gdt.append(Descriptor::user_code_segment());
         (
             gdt,
             [code_sel, data_sel, tss_sel, user_data_sel, user_code_sel],

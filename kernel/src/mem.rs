@@ -1,3 +1,4 @@
+use core::arch::asm;
 use alloc::boxed::Box;
 use core::fmt::Display;
 
@@ -104,7 +105,7 @@ impl PageTable {
         pt.entries[0].set_bit(BIT_PRESENT, true);
         pt.entries[0].set_bit(BIT_WRITABLE, true);
         pt.entries[0].set_bit(BIT_USER, true); // entry is present, writable and accessible by user
-        let mut pt0 = pt.entries[0].next_pt(); // get the child PT we just allocated
+        let pt0 = pt.entries[0].next_pt(); // get the child PT we just allocated
         let cur_pt0 = get_page_table().entries[0].next_pt();
         pt0.entries[3] = cur_pt0.entries[3].clone(); // copy over the entries 3, 4, 5, 6 from the equivalent
         pt0.entries[4] = cur_pt0.entries[4].clone(); // child PT that is currently in use

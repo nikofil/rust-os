@@ -1,5 +1,7 @@
+use core::arch::naked_asm;
+
 #[naked]
-pub unsafe fn userspace_prog_1() {
+pub unsafe extern "C" fn userspace_prog_1() {
     /*
     error if named labels used in inline asm:
     = note: `#[deny(named_asm_labels)]` on by default
@@ -7,7 +9,7 @@ pub unsafe fn userspace_prog_1() {
     https://doc.rust-lang.org/unstable-book/library-features/asm.html#labels
     */
     
-    asm!("\
+    naked_asm!("\
         mov rbx, 0xf0000000
         2: // prog1 start
         push 0x595ca11a // keep the syscall number in the stack
@@ -35,12 +37,12 @@ pub unsafe fn userspace_prog_1() {
         mov rsi, rbx // second syscall arg is the loop counter
         syscall // perform the syscall!
         jmp 2b // do it all over
-    ", options(noreturn));
+    ");
 }
 
 #[naked]
-pub unsafe fn userspace_prog_2() {
-    asm!("\
+pub unsafe extern "C" fn userspace_prog_2() {
+    naked_asm!("\
         mov rbx, 0
         4: // prog2start
         push 0x595ca11b // keep the syscall number in the stack
@@ -68,12 +70,12 @@ pub unsafe fn userspace_prog_2() {
         mov rsi, rbx // second syscall arg is the loop counter
         syscall // perform the syscall!
         jmp 4b // do it all over
-    ",options(noreturn));
+    ");
 }
 
 #[naked]
-pub unsafe fn userspace_prog_hello() {
-    asm!("\
+pub unsafe extern "C" fn userspace_prog_hello() {
+    naked_asm!("\
             42:
             mov rax, 0x42 // syscall number in rax
             mov rdi, rsp // first syscall arg is rsp
@@ -87,5 +89,5 @@ pub unsafe fn userspace_prog_hello() {
 
             syscall // perform the syscall!
             jmp 42b // 1 for the label 1: , b for before (the one closet before)
-        ",options(noreturn));
+        ");
 }
