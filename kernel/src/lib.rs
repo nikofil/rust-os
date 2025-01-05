@@ -2,6 +2,7 @@
 #![feature(naked_functions)]
 #![feature(abi_x86_interrupt)]
 #![feature(alloc_error_handler)]
+#![allow(static_mut_refs)]
 
 extern crate alloc;
 extern crate multiboot2;
@@ -37,6 +38,8 @@ use multiboot2::{BootInformationHeader, BootInformation};
 #[global_allocator]
 static ALLOCATOR: global_alloc::Allocator = global_alloc::Allocator;
 
+static mut BOOT_INFO: Option<BootInformation> = None;
+
 #[alloc_error_handler]
 fn alloc_error_handler(layout: alloc::alloc::Layout) -> ! {
     panic!("allocation error: {:?}", layout)
@@ -64,17 +67,18 @@ pub extern "C" fn ua64_mode_start() -> ! {
         ", out("rdi") multiboot_info_addr);
     }
     let boot_info = unsafe {
-        BootInformation::load(
+        BOOT_INFO = Some(BootInformation::load(
             mem::PhysAddr::new(multiboot_info_addr)
                 .to_virt()
                 .unwrap()
                 .addr() as *const BootInformationHeader,
-        ).unwrap_unchecked()
+        ).unwrap_unchecked());
+        BOOT_INFO.as_ref().unwrap()
     };
     start(boot_info);
 }
 
-pub fn start(boot_info: BootInformation) -> ! {
+pub fn start(boot_info: &'static BootInformation) -> ! {
     cls();
     init_gdt();
     setup_idt();
