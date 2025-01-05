@@ -1,6 +1,7 @@
 use core::arch::asm;
 use crate::gdt;
 use crate::mem;
+use crate::port;
 use crate::serial_println;
 use alloc::boxed::Box;
 use alloc::vec::Vec;
@@ -196,4 +197,10 @@ impl Scheduler {
 
 lazy_static! {
     pub static ref SCHEDULER: Scheduler = Scheduler::new();
+}
+
+pub unsafe extern "sysv64" fn context_switch(ctx: *const Context) {
+    SCHEDULER.save_current_context(ctx);
+    port::end_of_interrupt(32);
+    SCHEDULER.run_next();
 }

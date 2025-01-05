@@ -1,4 +1,4 @@
-use core::arch::asm;
+use core::arch::{asm, naked_asm};
 use crate::port::{end_of_interrupt, Port};
 use crate::scheduler;
 use crate::{print, println};
@@ -59,14 +59,15 @@ extern "x86-interrupt" fn double_fault(stack_frame: &mut InterruptStackFrame, er
 }
 
 // timer interrupt function to change contexts
-#[no_mangle]
+#[naked]
 unsafe extern "sysv64" fn timer(_stack_frame: &mut InterruptStackFrame) {
-    // undo the push by sysv64 calling convention
-    asm!("pop rbx");
-    let ctx = scheduler::get_context();
-    scheduler::SCHEDULER.save_current_context(ctx);
-    end_of_interrupt(32);
-    scheduler::SCHEDULER.run_next();
+    naked_asm!("\
+    push r15; push r14; push r13; push r12; push r11; push r10; push r9;\
+    push r8; push rdi; push rsi; push rdx; push rcx; push rbx; push rax; push rbp;\
+    mov rdi, rsp   // first arg of context switch is the context which is all the registers saved above
+    sub rsp, 0x400
+    jmp {context_switch}
+    ", context_switch = sym scheduler::context_switch);
 }
 
 irq_fn!(keyboard, 33, || {
@@ -115,9 +116,7 @@ struct InterruptDescriptorTable([IDTEntry; 0x100]);
 impl InterruptDescriptorTable {
     fn load(&'static self) {
         let idt_ptr = DescriptorTablePointer {
-            // base: self as *const _ as u64,
-            //^^^^^^^^^^^^^^^^^^^^^^^ expected struct `x86_64::VirtAddr`, found `u64`
-            base:  VirtAddr::from_ptr(self as *const _),//_ as x86_64::VirtAddr,
+            base:  VirtAddr::from_ptr(self as *const _),
             limit: (size_of::<Self>() - 1) as u16,
         };
         println!(" - Setting up IDT with {} entries", INTERRUPT_TABLE.0.len());
