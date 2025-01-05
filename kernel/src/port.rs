@@ -137,6 +137,8 @@ pub fn init_pics() {
         asm!("sti");
     }
     println!(" - Interrupts enabled");
+
+    // disable_pit();
 }
 
 pub fn end_of_interrupt(interrupt_id: u8) {
@@ -144,4 +146,14 @@ pub fn end_of_interrupt(interrupt_id: u8) {
         Port::new(PIC_SLAVE_PORT).write(END_OF_INTERRUPT);
     }
     Port::new(PIC_MASTER_PORT).write(END_OF_INTERRUPT);
+}
+
+pub fn disable_pit() {
+    const PIT_COMMAND_PORT: u16 = 0x43;
+    const PIT_CHANNEL0_PORT: u16 = 0x40;
+
+    Port::<u8>::new(PIT_COMMAND_PORT).write(0x30); // select channel 0
+    let chan: Port<u8> = Port::new(PIT_CHANNEL0_PORT);
+    chan.write(0);
+    chan.write(0); // set freq to 0
 }

@@ -58,11 +58,11 @@ extern "x86-interrupt" fn double_fault(stack_frame: &mut InterruptStackFrame, er
     loop {}
 }
 
-// this naked is necessary (as is for most/all interrupts)
-// #[naked]
-unsafe extern "x86-interrupt" fn timer(_stack_frame: &mut InterruptStackFrame) {
-    // TODO fix this shit
-    asm!("pop r11;pop r11;pop r11;pop r11;pop r11;pop r11;pop r11;pop r11;pop r11;pop r11;pop r11;");
+// timer interrupt function to change contexts
+#[no_mangle]
+unsafe extern "sysv64" fn timer(_stack_frame: &mut InterruptStackFrame) {
+    // undo the push by sysv64 calling convention
+    asm!("pop rbx");
     let ctx = scheduler::get_context();
     scheduler::SCHEDULER.save_current_context(ctx);
     end_of_interrupt(32);
