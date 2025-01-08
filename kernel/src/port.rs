@@ -138,7 +138,7 @@ pub fn init_pics() {
     }
     println!(" - Interrupts enabled");
 
-    // disable_pit();
+    disable_pit();
 }
 
 pub fn end_of_interrupt(interrupt_id: u8) {

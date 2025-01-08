@@ -192,6 +192,7 @@ impl Scheduler {
                 }
             }
         }
+        loop {} // no task to jump to
     }
 }
 

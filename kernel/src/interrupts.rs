@@ -1,7 +1,7 @@
 use core::arch::{asm, naked_asm};
 use crate::port::{end_of_interrupt, Port};
 use crate::scheduler;
-use crate::{print, println};
+use crate::{print, println, serial_println};
 use lazy_static::lazy_static;
 use spin::Mutex;
 
@@ -36,26 +36,30 @@ macro_rules! irq_fn {
 }
 
 extern "x86-interrupt" fn div_by_zero(stack_frame: &mut InterruptStackFrame) {
-    println!("div by zero! {:?}", stack_frame);
+    println!(" !! div by zero {:?}", stack_frame);
 }
 
 extern "x86-interrupt" fn breakpoint(stack_frame: &mut InterruptStackFrame) {
-    println!("int3 {:?}", stack_frame);
+    println!(" !! int3 {:?}", stack_frame);
 }
 
 extern "x86-interrupt" fn page_fault(stack_frame: &mut InterruptStackFrame, err_code: u64) {
-    println!("page fault! err code: {} {:?}", err_code, stack_frame);
+    println!(" !! page fault @ {:x}! err code: {} {:?}", stack_frame.instruction_pointer.as_u64(), err_code, stack_frame);
     loop {}
 }
 
 extern "x86-interrupt" fn gpf(stack_frame: &mut InterruptStackFrame, err_code: u64) {
-    println!("gpf! err code: {} {:?}", err_code, stack_frame);
+    println!(" !! gpf! err code: {} {:?}", err_code, stack_frame);
     loop {}
 }
 
 extern "x86-interrupt" fn double_fault(stack_frame: &mut InterruptStackFrame, err_code: u64) {
-    println!("double fault! err code: {} {:?}", err_code, stack_frame);
+    println!(" !! double fault! err code: {} {:?}", err_code, stack_frame);
     loop {}
+}
+
+extern "x86-interrupt" fn ide(_stack_frame: &mut InterruptStackFrame) {
+    serial_println!(" # IDE IRQ");
 }
 
 // timer interrupt function to change contexts
@@ -106,6 +110,7 @@ lazy_static! {
         idt_entry!(14, page_fault);
         idt_entry!(32, timer);
         idt_entry!(33, keyboard);
+        idt_entry!(46, ide);
         InterruptDescriptorTable(vectors)
     };
 }

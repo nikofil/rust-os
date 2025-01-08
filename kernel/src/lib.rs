@@ -21,6 +21,7 @@ pub mod serial_port;
 pub mod syscalls;
 mod userspace;
 pub mod vga_buffer;
+pub mod fat16;
 
 use core::arch::asm;
 use gdt::init_gdt;
@@ -113,12 +114,14 @@ pub fn start(boot_info: &'static BootInformation) -> ! {
     let userspace_fn_hello_in_kernel =
         mem::VirtAddr::new(userspace::userspace_prog_hello as *const () as u64);
     unsafe {
+        fat16::do1();
+
         let sched = &scheduler::SCHEDULER;
-        sched.schedule(userspace_fn_1_in_kernel);
-        sched.schedule(userspace_fn_2_in_kernel);
-        sched.schedule(userspace_fn_hello_in_kernel);
+        // sched.schedule(userspace_fn_1_in_kernel);
+        // sched.schedule(userspace_fn_2_in_kernel);
+        // sched.schedule(userspace_fn_hello_in_kernel);
         loop {
-            sched.run_next();
+            // sched.run_next();
         }
     }
 }
