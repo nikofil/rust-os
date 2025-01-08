@@ -1,3 +1,5 @@
+use core::fmt::{self, Display};
+use core::convert::TryInto;
 
 use alloc::vec::Vec;
 
@@ -71,7 +73,7 @@ impl IDE {
         v.resize(buf.len() + SECTOR_SIZE*2, 0);
 
         let first_sector = address / SECTOR_SIZE;
-        let read_sectors = v.len() / SECTOR_SIZE; 
+        let read_sectors = v.len() / SECTOR_SIZE;
         let start_address = address % SECTOR_SIZE;
 
         self.read_sectors(first_sector, read_sectors, &mut v);
@@ -80,13 +82,47 @@ impl IDE {
     }
 }
 
-pub fn do1() {
-    let mut buf = [0u8; 40];
+struct FAT16 {
+    ide: IDE,
+    label: SizedString<11>,
+    sector_size: u16,
+    cluster_sectors: u8,
+}
 
-    IDE::new_primary_master().read(0 , &mut buf);
-    println!("Hello, fat16! {:x?}", &buf);
-    IDE::new_primary_master().read(10, &mut buf);
-    println!("Hello, fat16! {:x?}", &buf);
-    IDE::new_primary_master().read(0x800, &mut buf);
-    println!("Hello, fat16! {:x?}", &buf);
+struct SizedString<const N: usize>([u8; N]);
+
+impl<const N: usize> SizedString<N> {
+    pub fn new(c: &[u8]) -> Self {
+        Self(c.try_into().unwrap())
+    }
+}
+
+impl FAT16 {
+    pub fn new() -> FAT16 {
+        let mut ide = IDE::new_primary_master();
+        let mut buf = [0u8; 512];
+
+        ide.read(0, &mut buf);
+
+        FAT16 {
+            ide,
+            label: SizedString::<11>::new(&buf[43..54]),
+            sector_size: ((buf[11] as u16) << 8) + buf[12] as u16,
+            cluster_sectors: buf[13],
+        }
+    }
+}
+
+impl<const N: usize> Display for SizedString<N> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        for c in self.0.iter() {
+            write!(f, "{}", *c as char)?;
+        }
+        Ok(())
+    }
+}
+
+pub fn do1() {
+    let f = FAT16::new();
+    println!("FAT16 label: {}", f.label);
 }
