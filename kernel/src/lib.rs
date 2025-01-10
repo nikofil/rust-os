@@ -56,7 +56,7 @@ fn panic(info: &PanicInfo) -> ! {
 
 #[no_mangle]
 pub extern "C" fn ua64_mode_start() -> ! {
-    let mut multiboot_info_addr: u64;
+    let mut multiboot_info_addr: usize;
     unsafe {
         asm!("\
             mov ax, 0
@@ -108,16 +108,16 @@ pub fn start(boot_info: &'static BootInformation) -> ! {
     set_color(Color::Green, Color::Black, false);
     init_pics();
     let userspace_fn_1_in_kernel =
-        mem::VirtAddr::new(userspace::userspace_prog_1 as *const () as u64);
+        mem::VirtAddr::new(userspace::userspace_prog_1 as *const () as usize);
     let userspace_fn_2_in_kernel =
-        mem::VirtAddr::new(userspace::userspace_prog_2 as *const () as u64);
+        mem::VirtAddr::new(userspace::userspace_prog_2 as *const () as usize);
     let userspace_fn_hello_in_kernel =
-        mem::VirtAddr::new(userspace::userspace_prog_hello as *const () as u64);
+        mem::VirtAddr::new(userspace::userspace_prog_hello as *const () as usize);
     unsafe {
-        fat16::do1();
+        let main_addr = fat16::load_main().unwrap().as_ptr() as usize;
 
-        let sched = &scheduler::SCHEDULER;
-        // sched.schedule(userspace_fn_1_in_kernel);
+        // let sched = &scheduler::SCHEDULER;
+        // sched.schedule(mem::VirtAddr::new(main_addr), 0x70);
         // sched.schedule(userspace_fn_2_in_kernel);
         // sched.schedule(userspace_fn_hello_in_kernel);
         loop {

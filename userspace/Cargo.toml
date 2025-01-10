@@ -1,0 +1,11 @@
+[package]
+name = "userspace"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+path = "src/main.rs"
+crate-type = ["staticlib"]
+
+[dependencies]
+x86_64 = "0.15.2"

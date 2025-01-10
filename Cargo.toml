@@ -2,7 +2,7 @@
 members = [
     "kernel",
     "runner"
-]
+, "userspace"]
 
 [profile.dev]
 panic = "abort"

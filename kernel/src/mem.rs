@@ -2,13 +2,13 @@ use core::arch::asm;
 use alloc::boxed::Box;
 use core::fmt::Display;
 
-const VIRT_OFFSET: u64 = 0xC0000000;
-pub const FRAME_SIZE: u64 = 0x1000;
+const VIRT_OFFSET: usize = 0xC0000000;
+pub const FRAME_SIZE: usize = 0x1000;
 type EmptyFrame = [u8; FRAME_SIZE as usize];
 
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub struct PTEntry(u64);
+pub struct PTEntry(usize);
 
 #[repr(C)]
 pub struct PageTable {
@@ -27,17 +27,17 @@ pub const BIT_GLOBAL: u16 = 1 << 8;
 
 impl PTEntry {
     pub fn get_bit(&self, bit: u16) -> bool {
-        (self.0 & (bit as u64)) != 0
+        (self.0 & (bit as usize)) != 0
     }
 
     pub fn set_opts(&mut self, options: u16) {
         let val = (self.0 >> 9) << 9;
-        self.0 = val | options as u64;
+        self.0 = val | options as usize;
     }
 
     pub fn set_bit(&mut self, bit: u16, v: bool) {
-        if ((self.0 & (bit as u64)) != 0) != v {
-            self.0 ^= bit as u64;
+        if ((self.0 & (bit as usize)) != 0) != v {
+            self.0 ^= bit as usize;
         }
     }
 
@@ -91,7 +91,7 @@ impl Display for PTEntry {
 }
 
 pub unsafe fn get_page_table() -> &'static mut PageTable {
-    let mut p4: u64;
+    let mut p4: usize;
     asm!("mov rax, cr3", out("rax") p4);
     &mut *((p4 + VIRT_OFFSET) as *mut PageTable)
 }
@@ -115,7 +115,7 @@ impl PageTable {
     }
 
     pub unsafe fn phys_addr(&self) -> PhysAddr {
-        let virt = VirtAddr::new(self as *const _ as u64);
+        let virt = VirtAddr::new(self as *const _ as usize);
         virt.to_phys().unwrap().0
     }
 
@@ -126,7 +126,7 @@ impl PageTable {
 
     unsafe fn alloc_page() -> PhysAddr {
         let frame: Box<EmptyFrame> = Box::new([0; FRAME_SIZE as usize]);
-        VirtAddr::new(Box::into_raw(frame) as u64)
+        VirtAddr::new(Box::into_raw(frame) as usize)
             .to_phys()
             .unwrap()
             .0
@@ -196,16 +196,16 @@ impl PageTable {
 }
 
 #[derive(Copy, Clone, Debug)]
-pub struct PhysAddr(u64);
+pub struct PhysAddr(usize);
 #[derive(Copy, Clone, Debug)]
-pub struct VirtAddr(u64);
+pub struct VirtAddr(usize);
 
 impl VirtAddr {
-    pub fn new(addr: u64) -> Self {
+    pub fn new(addr: usize) -> Self {
         VirtAddr(addr)
     }
 
-    pub fn offset(&self, offset: u64) -> VirtAddr {
+    pub fn offset(&self, offset: usize) -> VirtAddr {
         VirtAddr::new(self.0 + offset)
     }
 
@@ -245,13 +245,13 @@ impl VirtAddr {
         }
     }
 
-    pub fn addr(&self) -> u64 {
+    pub fn addr(&self) -> usize {
         self.0
     }
 }
 
 impl PhysAddr {
-    pub fn new(addr: u64) -> Self {
+    pub fn new(addr: usize) -> Self {
         PhysAddr(addr)
     }
 
@@ -263,11 +263,11 @@ impl PhysAddr {
         }
     }
 
-    pub fn addr(&self) -> u64 {
+    pub fn addr(&self) -> usize {
         self.0
     }
 
-    pub fn offset(&self, offset: u64) -> PhysAddr {
+    pub fn offset(&self, offset: usize) -> PhysAddr {
         PhysAddr::new(self.0 + offset)
     }
 }

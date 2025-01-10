@@ -43,7 +43,7 @@ impl BuddyAllocatorManager {
     pub fn add_mem_area_with_size(
         &self,
         frame_alloc: &mut dyn FrameSingleAllocator,
-        mem_size: u64,
+        mem_size: usize,
         block_size: u16,
     ) -> bool {
         // Find and create a buddy allocator with the memory area requested.
@@ -99,7 +99,7 @@ impl BuddyAllocatorManager {
 
     fn get_mem_area_with_size(
         frame_alloc: &mut dyn FrameSingleAllocator,
-        mem_size: u64,
+        mem_size: usize,
     ) -> MemAreaRequest {
         // This function tries to find a continuous memory area as big as the one requested by
         // pulling pages from the frame allocator. If it doesn't find an area big enough immediately,
@@ -143,7 +143,7 @@ impl BuddyAllocatorManager {
         }
     }
 
-    fn get_largest_page_multiple(start: u64, end: u64) -> Option<(PhysAddr, PhysAddr)> {
+    fn get_largest_page_multiple(start: usize, end: usize) -> Option<(PhysAddr, PhysAddr)> {
         // Given a start and end address, try to find the largest memory size that can fit into that
         // area that is also a left shift of a FRAME_SIZE (ie. 4096, 8192, 16384 etc.)
         // We need this because our buddy allocator needs a memory area whose size is a power of 2
@@ -200,7 +200,7 @@ unsafe impl GlobalAlloc for BuddyAllocatorManager {
     }
 
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
-        let virt_addr = VirtAddr::new(ptr as u64);
+        let virt_addr = VirtAddr::new(ptr as usize);
         if let Some((phys_addr, _)) = virt_addr.to_phys() {
             for (_i, allocator_mtx) in self.buddy_allocators.read().iter().enumerate() {
                 // for each allocator
@@ -239,7 +239,7 @@ impl BuddyAllocator {
     fn new(start_addr: PhysAddr, end_addr: PhysAddr, block_size: u16) -> BuddyAllocator {
         // number of levels excluding the leaf level
         let mut num_levels: u8 = 0;
-        while ((block_size as u64) << num_levels as u64) < end_addr.addr() - start_addr.addr() {
+        while ((block_size as usize) << num_levels as usize) < end_addr.addr() - start_addr.addr() {
             num_levels += 1;
         }
         // vector of free lists
@@ -305,7 +305,7 @@ impl BuddyAllocator {
                 // get_free_block gives us the index of the block in the given level
                 // so we need to find the size of each block in that level and multiply by the index
                 // to get the offset of the memory that was allocated.
-                let offset = block as u64 * (self.max_size() >> req_level as usize) as u64;
+                let offset = block as usize * (self.max_size() >> req_level as usize) as usize;
                 // Add the base address of this buddy allocator's block and return
                 PhysAddr::new(self.start_addr.addr() + offset)
             })

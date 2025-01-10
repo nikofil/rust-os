@@ -55,7 +55,7 @@ impl<T> Port<T>
 where
     T: InOut,
 {
-    pub fn new(port: u16) -> Port<T> {
+    pub const fn new(port: u16) -> Port<T> {
         Port {
             port,
             pt: PhantomData,

@@ -119,12 +119,12 @@ impl Scheduler {
         }
     }
 
-    pub unsafe fn schedule(&self, fn_addr: mem::VirtAddr) {
+    pub unsafe fn schedule(&self, fn_addr: mem::VirtAddr, entry_offset: usize) {
         let userspace_fn_phys = fn_addr.to_phys().unwrap().0; // virtual address to physical
         let page_phys_start = (userspace_fn_phys.addr() >> 12) << 12; // zero out page offset to get which page we should map
         let fn_page_offset = userspace_fn_phys.addr() - page_phys_start; // offset of function from page start
         let userspace_fn_virt_base = 0x400000; // target virtual address of page
-        let userspace_fn_virt = userspace_fn_virt_base + fn_page_offset; // target virtual address of function
+        let userspace_fn_virt = userspace_fn_virt_base + fn_page_offset + entry_offset; // target virtual address of function
         serial_println!(
             "Mapping {:x} to {:x}",
             page_phys_start,
@@ -142,7 +142,7 @@ impl Scheduler {
             mem::BIT_PRESENT | mem::BIT_USER,
         ); // also map another page to be sure we got the entire function in
         let mut stack_space: Vec<u8> = Vec::with_capacity(0x1000); // allocate some memory to use for the stack
-        let stack_space_phys = mem::VirtAddr::new(stack_space.as_mut_ptr() as *const u8 as u64)
+        let stack_space_phys = mem::VirtAddr::new(stack_space.as_mut_ptr() as *const u8 as usize)
             .to_phys()
             .unwrap()
             .0;

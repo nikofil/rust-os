@@ -12,17 +12,17 @@ pub trait FrameSingleAllocator: Send {
 }
 
 pub struct SimpleAllocator {
-    kernel_end_phys: u64, // end address of our kernel sections (don't write before this!)
+    kernel_end_phys: usize, // end address of our kernel sections (don't write before this!)
     mem_areas: Iter<'static, MemoryArea>, // memory areas from multiboot
-    cur_area: Option<(u64, u64)>, // currently used area's bounds
-    next_page: Option<u64>,     // physical address of last page returned
+    cur_area: Option<(usize, usize)>, // currently used area's bounds
+    next_page: Option<usize>,     // physical address of last page returned
 }
 
 unsafe impl core::marker::Send for SimpleAllocator {} // shh it's ok pointers are thread-safe
 
 impl SimpleAllocator {
     pub unsafe fn init(boot_info: &'static BootInformation<'static>) {
-        let kernel_end = boot_info.end_address() as u64;
+        let kernel_end = boot_info.end_address();
         let kernel_end_phys = VirtAddr::new(kernel_end).to_phys().unwrap().0.addr();
         let mem_tag = boot_info
             .memory_map_tag()
@@ -38,11 +38,11 @@ impl SimpleAllocator {
         BOOTINFO_ALLOCATOR.replace(alloc);
     }
 
-    fn next_area(&mut self) -> Option<(u64, u64)> {
+    fn next_area(&mut self) -> Option<(usize, usize)> {
         self.cur_area = self.mem_areas.next().map(|mem_area| {
             // get base addr and length for current area
-            let base_addr = mem_area.start_address();
-            let area_len = mem_area.size();
+            let base_addr = mem_area.start_address() as usize;
+            let area_len = mem_area.size() as usize;
             // start after kernel end
             let mem_start = max(base_addr, self.kernel_end_phys);
             let mem_end = base_addr + area_len;

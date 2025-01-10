@@ -74,7 +74,7 @@ unsafe impl GlobalAlloc for Allocator {
         }
         if_chain! {
             // try converting the deallocated virtual page address to the physical address
-            if let Some((phys_addr, _)) = VirtAddr::new(ptr as u64).to_phys();
+            if let Some((phys_addr, _)) = VirtAddr::new(ptr as usize).to_phys();
             // try locking the free frames list (this fails if we've already locked free_frames
             // for some reason, i.e. if we're in the middle of reallocating it due to a push to it)
             if let Some(ref mut guard) = ALLOCATOR_INFO.free_frames.try_lock();
@@ -85,7 +85,7 @@ unsafe impl GlobalAlloc for Allocator {
                 free.push(phys_addr);
             }
         }
-        serial_println!(" - GlobalAlloc: Deallocated {:x}", ptr as u64);
+        serial_println!(" - GlobalAlloc: Deallocated {:x}", ptr as usize);
     }
 }
 
