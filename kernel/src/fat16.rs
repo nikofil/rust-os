@@ -105,6 +105,7 @@ impl IDE {
     }
 }
 
+#[allow(dead_code)]
 #[derive(Debug)]
 struct FAT16 {
     label: SizedString<11>,

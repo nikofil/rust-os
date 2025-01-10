@@ -1,8 +1,9 @@
 [workspace]
 members = [
     "kernel",
-    "runner"
-, "userspace"]
+    "runner",
+    "userspace"
+]
 
 [profile.dev]
 panic = "abort"

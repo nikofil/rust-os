@@ -19,7 +19,6 @@ pub mod port;
 pub mod scheduler;
 pub mod serial_port;
 pub mod syscalls;
-mod userspace;
 pub mod vga_buffer;
 pub mod fat16;
 
@@ -107,21 +106,13 @@ pub fn start(boot_info: &'static BootInformation) -> ! {
     }
     set_color(Color::Green, Color::Black, false);
     init_pics();
-    let userspace_fn_1_in_kernel =
-        mem::VirtAddr::new(userspace::userspace_prog_1 as *const () as usize);
-    let userspace_fn_2_in_kernel =
-        mem::VirtAddr::new(userspace::userspace_prog_2 as *const () as usize);
-    let userspace_fn_hello_in_kernel =
-        mem::VirtAddr::new(userspace::userspace_prog_hello as *const () as usize);
     unsafe {
-        let main_addr = fat16::load_main().unwrap().as_ptr() as usize;
+        let main = fat16::load_main().unwrap();
+        let main_addr = main.as_ptr() as usize;
 
-        // let sched = &scheduler::SCHEDULER;
-        // sched.schedule(mem::VirtAddr::new(main_addr), 0x70);
-        // sched.schedule(userspace_fn_2_in_kernel);
-        // sched.schedule(userspace_fn_hello_in_kernel);
-        loop {
-            // sched.run_next();
-        }
+        let sched = &scheduler::SCHEDULER;
+        sched.schedule(mem::VirtAddr::new(main_addr), 0x1020); // TODO parse the elf to find the offset, also map out more pages for the text section than just 2
+        sched.schedule(mem::VirtAddr::new(main_addr), 0x1020);
+        loop {} // no need to do anything here as we will be interrupted anyway
     }
 }
