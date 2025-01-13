@@ -72,9 +72,10 @@ enum TaskState {
     StartingInfo(mem::VirtAddr, mem::VirtAddr), // or a starting instruction and stack pointer
 }
 
-struct Task {
+pub struct Task {
     state: TaskState,             // the current state of the task
     task_pt: Box<mem::PageTable>, // the page table for this task
+    _data_vec: Vec<u8>,          // a vector to keep the task's data to be mapped
     _stack_vec: Vec<u8>,          // a vector to keep the task's stack space
 }
 
@@ -82,13 +83,15 @@ impl Task {
     pub fn new(
         exec_base: mem::VirtAddr,
         stack_end: mem::VirtAddr,
-        _stack_vec: Vec<u8>,
         task_pt: Box<mem::PageTable>,
+        _data_vec: Vec<u8>,
+        _stack_vec: Vec<u8>,
     ) -> Task {
         Task {
             state: TaskState::StartingInfo(exec_base, stack_end),
-            _stack_vec,
             task_pt,
+            _data_vec,
+            _stack_vec,
         }
     }
 }
@@ -119,7 +122,8 @@ impl Scheduler {
         }
     }
 
-    pub unsafe fn schedule(&self, fn_addr: mem::VirtAddr, entry_offset: usize) {
+    pub unsafe fn schedule_data(&self, prog_data: Vec<u8>, entry_offset: usize) {
+        let fn_addr = mem::VirtAddr::new(prog_data.as_ptr() as usize);
         let userspace_fn_phys = fn_addr.to_phys().unwrap().0; // virtual address to physical
         let page_phys_start = (userspace_fn_phys.addr() >> 12) << 12; // zero out page offset to get which page we should map
         let fn_page_offset = userspace_fn_phys.addr() - page_phys_start; // offset of function from page start
@@ -155,8 +159,9 @@ impl Scheduler {
         let task = Task::new(
             mem::VirtAddr::new(userspace_fn_virt),
             mem::VirtAddr::new(0x801000),
-            stack_space,
             task_pt,
+            prog_data,
+            stack_space,
         ); // create task struct
         self.tasks.lock().push(task); // push task struct to list of tasks
     }
