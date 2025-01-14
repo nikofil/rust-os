@@ -46,7 +46,7 @@ extern "C" fn _start() {
     let mut i = 0u64;
     loop {
         sleep(100000000);
-        syscall(0x595ca11a, i, i*2, 0, 0);
+        syscall(0x595ca11a, i, i*2, i*3, i*4);
         i+=1;
     }
 }

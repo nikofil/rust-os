@@ -6,6 +6,7 @@ use crate::serial_println;
 use alloc::boxed::Box;
 use alloc::vec::Vec;
 use core::fmt::Display;
+use core::pin::Pin;
 use lazy_static::lazy_static;
 use spin::Mutex;
 
@@ -75,8 +76,8 @@ enum TaskState {
 pub struct Task {
     state: TaskState,             // the current state of the task
     task_pt: Box<mem::PageTable>, // the page table for this task
-    _data_vec: Vec<u8>,          // a vector to keep the task's data to be mapped
-    _stack_vec: Vec<u8>,          // a vector to keep the task's stack space
+    _data_bytes: Pin<Box<[u8]>>,          // a vector to keep the task's data to be mapped
+    _stack_bytes: Pin<Box<[u8]>>,          // a vector to keep the task's stack space
 }
 
 impl Task {
@@ -84,14 +85,16 @@ impl Task {
         exec_base: mem::VirtAddr,
         stack_end: mem::VirtAddr,
         task_pt: Box<mem::PageTable>,
-        _data_vec: Vec<u8>,
-        _stack_vec: Vec<u8>,
+        _data_bytes: Pin<Box<[u8]>>,
+        _stack_bytes: Pin<Box<[u8]>>,
     ) -> Task {
+        // ask for the vecs to be pinned as we take the pointer to the data above
+        // and we don't want the data to be moved around in physical memory while we've mapped it to virtual memory
         Task {
             state: TaskState::StartingInfo(exec_base, stack_end),
             task_pt,
-            _data_vec,
-            _stack_vec,
+            _data_bytes,
+            _stack_bytes,
         }
     }
 }
@@ -123,7 +126,8 @@ impl Scheduler {
     }
 
     pub unsafe fn schedule_data(&self, prog_data: Vec<u8>, entry_offset: usize) {
-        let fn_addr = mem::VirtAddr::new(prog_data.as_ptr() as usize);
+        let prog_bytes = Pin::new(prog_data.into_boxed_slice());
+        let fn_addr = mem::VirtAddr::new(prog_bytes.as_ptr() as usize);
         let userspace_fn_phys = fn_addr.to_phys().unwrap().0; // virtual address to physical
         let page_phys_start = (userspace_fn_phys.addr() >> 12) << 12; // zero out page offset to get which page we should map
         let fn_page_offset = userspace_fn_phys.addr() - page_phys_start; // offset of function from page start
@@ -141,11 +145,11 @@ impl Scheduler {
             mem::BIT_PRESENT | mem::BIT_USER,
         ); // map the program's code
         task_pt.map_virt_to_phys(
-            mem::VirtAddr::new(userspace_fn_virt_base).offset(0x1000),
-            mem::PhysAddr::new(page_phys_start).offset(0x1000),
+            mem::VirtAddr::new(userspace_fn_virt_base).offset(mem::FRAME_SIZE),
+            mem::PhysAddr::new(page_phys_start).offset(mem::FRAME_SIZE),
             mem::BIT_PRESENT | mem::BIT_USER,
         ); // also map another page to be sure we got the entire function in
-        let mut stack_space: Vec<u8> = Vec::with_capacity(0x1000); // allocate some memory to use for the stack
+        let mut stack_space = Pin::new(Box::new([0u8; mem::FRAME_SIZE])); // allocate some pinned memory to use for the stack
         let stack_space_phys = mem::VirtAddr::new(stack_space.as_mut_ptr() as *const u8 as usize)
             .to_phys()
             .unwrap()
@@ -160,9 +164,14 @@ impl Scheduler {
             mem::VirtAddr::new(userspace_fn_virt),
             mem::VirtAddr::new(0x801000),
             task_pt,
-            prog_data,
+            prog_bytes,
             stack_space,
         ); // create task struct
+        self.schedule_task(task); // schedule the task
+    }
+
+
+    pub fn schedule_task(&self, task: Task) {
         self.tasks.lock().push(task); // push task struct to list of tasks
     }
 

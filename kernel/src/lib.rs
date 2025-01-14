@@ -24,11 +24,9 @@ pub mod fat16;
 pub mod elf;
 
 use core::arch::asm;
-use alloc::borrow::ToOwned;
 use gdt::init_gdt;
 use interrupts::setup_idt;
 use vga_buffer::cls;
-use alloc::vec::Vec;
 
 use crate::port::init_pics;
 use crate::vga_buffer::set_color;
@@ -110,22 +108,12 @@ pub fn start(boot_info: &'static BootInformation) -> ! {
     }
     set_color(Color::Green, Color::Black, false);
     init_pics();
-    unsafe {
-        let main = fat16::load_main().unwrap();
-        let mut main2 = Vec::new();
-        main.clone_into(&mut main2);
-        // let main_addr = main.as_ptr() as usize;
-        // Elf::new(main);
 
+    let main = fat16::load_main().unwrap(); // load the /BOOT main program from fat16
 
-        let sched = &scheduler::SCHEDULER;
-        sched.schedule_data(main, 0x1020); // TODO parse the elf to find the offset, also map out more pages for the text section than just 2
-        sched.schedule_data(main2, 0x1020);
-        // +24: EIP
-        // +32: phoff
-        // +0x36: ph#
-        // +0x38: size
-        // pheader: 
-        loop {} // no need to do anything here as we will be interrupted anyway
-    }
+    let elf = Elf::new(main); // parse the file as an elf to find loadable sections
+
+    let sched = &scheduler::SCHEDULER;
+    sched.schedule_task(elf.into()); // transform to a task and schedule it
+    loop {} // no need to do anything here as we will be interrupted anyway
 }
