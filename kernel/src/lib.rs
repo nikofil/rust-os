@@ -2,6 +2,7 @@
 #![feature(naked_functions)]
 #![feature(abi_x86_interrupt)]
 #![feature(alloc_error_handler)]
+#![feature(str_from_raw_parts)]
 #![allow(static_mut_refs)]
 
 extern crate alloc;

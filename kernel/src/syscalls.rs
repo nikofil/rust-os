@@ -27,22 +27,16 @@ pub unsafe fn init_syscalls() {
 }
 
 #[inline(never)]
-fn sys0(a: u64, b: u64, c: u64, d: u64) -> u64 {
-    println!("sys0 {:x} {:x} {:x} {:x}", a, b, c, d);
-    123
-}
-
-#[inline(never)]
-fn sys1(a: u64, b: u64, c: u64, d: u64) -> u64 {
-    println!("sys1 {:x} {:x} {:x} {:x}", a, b, c, d);
-    456
-}
-
-
-#[inline(never)]
-fn sys_hello(a: u64, b: u64, c: u64, d: u64) -> u64 {
-    println!("hello world! {:x} {:x} {:x} {:x}", a, b, c, d);
-    0
+fn sys_print(a: u64, b: u64, c: u64, d: u64) -> u64 {
+    let s = unsafe{core::str::from_raw_parts(a as *const u8, b as usize)};
+    if c != 0 && d != 0 {
+        println!("{} {} {}", s, c, d);
+    } else if c != 0 {
+        println!("{} {}", s, c);
+    } else {
+        println!("{}", s);
+    }
+    1
 }
 
 #[inline(never)]
@@ -69,7 +63,6 @@ extern "C" fn handle_syscall_wrapper() {
         mov rcx, r10 // move fourth syscall arg to rcx which is the fourth argument register in sysv64
         mov r8, rax // move syscall number to the 5th argument register
         call {syscall_alloc_stack} // call the handler with the syscall number in r8
-        mov rax, rbx // restore syscall return value from rbx to rax
         mov rsp, rbp // restore rsp from rbp
         pop r15 // restore callee-saved registers
         pop r14
@@ -104,9 +97,7 @@ extern "sysv64" fn handle_syscall_with_temp_stack(arg0: u64, arg1: u64, arg2: u6
         temp_stack = in(reg) temp_stack, old_stack = out(reg) old_stack);
     }
     let retval: u64 = match syscall {
-        0x595ca11a => sys0(arg0, arg1, arg2, arg3),
-        0x595ca11b => sys1(arg0, arg1, arg2, arg3),
-        0x42 => sys_hello(arg0, arg1, arg2, arg3),
+        0x1337 => sys_print(arg0, arg1, arg2, arg3),
         _ => sys_unhandled(),
     };
     unsafe {

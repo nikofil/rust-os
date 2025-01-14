@@ -41,12 +41,17 @@ fn sleep(c: u64) {
     }
 }
 
+fn printf(fmt: &str, a1: u64, a2: u64) -> u64 {
+    syscall(0x1337, fmt.as_ptr() as *const u8 as u64, fmt.len() as u64, a1, a2)
+}
+
 #[unsafe(no_mangle)]
 extern "C" fn _start() {
-    let mut i = 0u64;
+    let mut i = 1u64;
+    let mut l = 123;
     loop {
         sleep(100000000);
-        syscall(0x595ca11a, i, i*2, i*3, i*4);
+        l = printf("hello world", i, l);
         i+=1;
     }
 }
