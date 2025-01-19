@@ -1,6 +1,8 @@
 #![no_std]
 #![no_main]
+#![feature(str_from_raw_parts)]
 use core::arch::asm;
+use core::str;
 use core::panic::PanicInfo;
 
 #[inline(never)]
@@ -41,17 +43,36 @@ fn sleep(c: u64) {
     }
 }
 
-fn printf(fmt: &str, a1: u64, a2: u64) -> u64 {
-    syscall(0x1337, fmt.as_ptr() as *const u8 as u64, fmt.len() as u64, a1, a2)
+fn printf(str: &str, a1: u64, a2: u64) -> u64 {
+    syscall(0x1337, str.as_ptr() as *const u8 as u64, str.len() as u64, a1, a2)
+}
+
+fn printb(b: &[u8], l: usize, a1: u64, a2: u64) -> u64 {
+    unsafe {
+        let s = str::from_raw_parts(b.as_ptr(), l);
+        printf(s, a1, a2)
+    }
+}
+
+fn getline(buf: &mut [u8]) -> usize {
+    syscall(0x1338, buf.as_ptr() as u64, buf.len() as u64, 0, 0) as usize
 }
 
 #[unsafe(no_mangle)]
 extern "C" fn _start() {
+    let mut buf = [0u8; 20];
     let mut i = 1u64;
-    let mut l = 123;
+    let mut l = 0usize;
     loop {
-        sleep(100000000);
-        l = printf("hello world", i, l);
+        l = 0;
+        sleep(500000000);
+        printf("write something. last bytes: ", buf[0] as u64, buf[1] as u64);
+        while l == 0 {
+            l = getline(&mut buf);
+        }
+        printf("", 0, 0);
+        printf("you said:", 0, 0);
+        printb(&buf, l, l as u64, i);
         i+=1;
     }
 }

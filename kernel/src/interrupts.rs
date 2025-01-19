@@ -1,6 +1,9 @@
 use core::arch::{asm, naked_asm};
+use alloc::borrow::ToOwned;
+use alloc::vec::Vec;
 use crate::port::{end_of_interrupt, Port};
 use crate::scheduler;
+use crate::syscalls;
 use crate::{print, println, serial_println};
 use lazy_static::lazy_static;
 use spin::Mutex;
@@ -20,6 +23,8 @@ use x86_64::VirtAddr;
 type IDTHandler = extern "x86-interrupt" fn();
 
 lazy_static! {
+    static ref KEYS_BUF: Mutex<Vec<u8>> =
+        Mutex::new(Vec::<u8>::new());
     static ref KEYBOARD: Mutex<Keyboard<layouts::Us104Key, ScancodeSet1>> =
         Mutex::new(Keyboard::new(layouts::Us104Key, ScancodeSet1));
 }
@@ -81,8 +86,20 @@ irq_fn!(keyboard, 33, || {
     if let Ok(Some(key_evt)) = keybd.add_byte(scancode) {
         if let Some(key) = keybd.process_keyevent(key_evt) {
             match key {
-                DecodedKey::Unicode(character) => print!("{}", character),
-                DecodedKey::RawKey(key) => print!("{:?}", key),
+                DecodedKey::Unicode('\n') | DecodedKey::RawKey(pc_keyboard::KeyCode::Enter) => { // on enter press
+                    let mut chars = KEYS_BUF.lock();
+                    let mut chars_cp = Vec::new();
+                    chars.clone_into(&mut chars_cp);
+                    *syscalls::STDIN_BUF.lock() = Some(chars_cp); // replace the stdin buf with the current recorded keys
+                    *chars = Vec::new(); // replace the keys buf with an empty char vec
+                },
+                DecodedKey::Unicode(character) => {
+                    print!("{}", character);
+                    KEYS_BUF.lock().push(character as u8);
+                },
+                DecodedKey::RawKey(key) => {
+                    print!("{:?}", key);
+                },
             }
         }
     }

@@ -1,11 +1,17 @@
 use core::arch::{asm, naked_asm};
 use crate::println;
 use alloc::vec::Vec;
+use lazy_static::lazy_static;
+use spin::Mutex;
 
 // register for address of syscall handler
 const MSR_STAR: usize = 0xc0000081;
 const MSR_LSTAR: usize = 0xc0000082;
 const MSR_FMASK: usize = 0xc0000084;
+
+lazy_static! {
+    pub static ref STDIN_BUF: Mutex<Option<Vec<u8>>> = Mutex::new(None);
+}
 
 pub unsafe fn init_syscalls() {
     let handler_addr = handle_syscall_wrapper as *const () as u64;
@@ -27,16 +33,29 @@ pub unsafe fn init_syscalls() {
 }
 
 #[inline(never)]
-fn sys_print(a: u64, b: u64, c: u64, d: u64) -> u64 {
-    let s = unsafe{core::str::from_raw_parts(a as *const u8, b as usize)};
-    if c != 0 && d != 0 {
-        println!("{} {} {}", s, c, d);
-    } else if c != 0 {
-        println!("{} {}", s, c);
+fn sys_print(str: u64, strlen: u64, i1: u64, i2: u64) -> u64 {
+    let s = unsafe{core::str::from_raw_parts(str as *const u8, strlen as usize)};
+    if i1 != 0 && i2 != 0 {
+        println!("{} {} {}", s, i1, i2);
+    } else if i1 != 0 {
+        println!("{} {}", s, i1);
     } else {
         println!("{}", s);
     }
     1
+}
+
+#[inline(never)]
+fn sys_getline(str: u64, strlen: u64) -> u64 {
+    if let Some(mut v) = STDIN_BUF.try_lock().take() {
+        if let Some(vv) = v.take() {
+            let strptr = str as *mut u8;
+            let cplen = vv.len().min(strlen as usize);
+            unsafe {strptr.copy_from(vv.as_ptr() as *mut u8, cplen)};
+            return cplen as u64;
+        }
+    }
+    0
 }
 
 #[inline(never)]
@@ -98,6 +117,7 @@ extern "sysv64" fn handle_syscall_with_temp_stack(arg0: u64, arg1: u64, arg2: u6
     }
     let retval: u64 = match syscall {
         0x1337 => sys_print(arg0, arg1, arg2, arg3),
+        0x1338 => sys_getline(arg0, arg1),
         _ => sys_unhandled(),
     };
     unsafe {
