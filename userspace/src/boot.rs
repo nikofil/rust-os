@@ -47,10 +47,9 @@ fn printf(str: &str, a1: u64, a2: u64) -> u64 {
     syscall(0x1337, str.as_ptr() as *const u8 as u64, str.len() as u64, a1, a2)
 }
 
-fn printb(b: &[u8], l: usize, a1: u64, a2: u64) -> u64 {
+fn bytes_to_str(b: &[u8], l: usize) -> &str {
     unsafe {
-        let s = str::from_raw_parts(b.as_ptr(), l);
-        printf(s, a1, a2)
+        str::from_raw_parts(b.as_ptr(), l)
     }
 }
 
@@ -72,7 +71,8 @@ extern "C" fn _start() {
         }
         printf("", 0, 0);
         printf("you said:", 0, 0);
-        printb(&buf, l, l as u64, i);
+        let s = bytes_to_str(&buf, l);
+        printf(s, 0, 0);
         i+=1;
     }
 }

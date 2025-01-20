@@ -3,9 +3,9 @@ name = "userspace"
 version = "0.1.0"
 edition = "2024"
 
-[lib]
-path = "src/lib.rs"
-crate-type = ["staticlib"]
+[[bin]]
+name = "boot"
+path = "src/boot.rs"
 
 [dependencies]
 x86_64 = "0.15.2"
