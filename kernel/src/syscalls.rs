@@ -1,6 +1,8 @@
 use core::arch::{asm, naked_asm};
-use crate::println;
+use crate::{fat16, print};
 use alloc::vec::Vec;
+use alloc::format;
+use alloc::string::{String, ToString};
 use lazy_static::lazy_static;
 use spin::Mutex;
 
@@ -36,11 +38,11 @@ pub unsafe fn init_syscalls() {
 fn sys_print(str: u64, strlen: u64, i1: u64, i2: u64) -> u64 {
     let s = unsafe{core::str::from_raw_parts(str as *const u8, strlen as usize)};
     if i1 != 0 && i2 != 0 {
-        println!("{} {} {}", s, i1, i2);
+        print!("{} {} {}", s, i1, i2);
     } else if i1 != 0 {
-        println!("{} {}", s, i1);
+        print!("{} {}", s, i1);
     } else {
-        println!("{}", s);
+        print!("{}", s);
     }
     1
 }
@@ -56,6 +58,33 @@ fn sys_getline(str: u64, strlen: u64) -> u64 {
         }
     }
     0
+}
+
+#[inline(never)]
+fn sys_read(inode: u64, out: u64, outlen: u64) -> u64 {
+    let f = fat16::FAT16::new();
+    let outptr = out as *mut u8;
+    if let Some(de) = f.at(inode as u16) {
+        if de.is_dir() {
+            let mut dir_contents = String::new();
+            f.ls(&de).for_each(|x| {
+                let s = format!("{}: {}", x.name, x.index).to_string(); // make a string with the dir listings
+                dir_contents.push_str(&s);
+                dir_contents.push_str("\n");
+            });
+
+            let cplen = outlen.min(dir_contents.len() as u64);
+            unsafe {outptr.copy_from(dir_contents.as_ptr() as *mut u8, cplen as usize)}; // write the dir contents to the out buffer
+            cplen
+        } else {
+            let data = f.read_data(&de);
+            let cplen = outlen.min(data.len() as u64);
+            unsafe {outptr.copy_from(data.as_ptr() as *mut u8, cplen as usize)}; // write the data to the out buffer
+            cplen
+        }
+    } else {
+        0
+    }
 }
 
 #[inline(never)]
@@ -118,6 +147,7 @@ extern "sysv64" fn handle_syscall_with_temp_stack(arg0: u64, arg1: u64, arg2: u6
     let retval: u64 = match syscall {
         0x1337 => sys_print(arg0, arg1, arg2, arg3),
         0x1338 => sys_getline(arg0, arg1),
+        0x8EAD => sys_read(arg0, arg1, arg2),
         _ => sys_unhandled(),
     };
     unsafe {

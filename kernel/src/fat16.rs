@@ -3,9 +3,9 @@ use core::convert::TryInto;
 use alloc::vec::Vec;
 use crate::{port::Port, println};
 const SECTOR_SIZE: usize = 512;
-const DIR_ENTRY_SIZE: usize = 32;
+pub const DIR_ENTRY_SIZE: usize = 32;
 
-struct SizedString<const N: usize>([u8; N]);
+pub struct SizedString<const N: usize>([u8; N]);
 
 static IDE: IDE = IDE::new_primary_master();
 
@@ -107,7 +107,7 @@ impl IDE {
 
 #[allow(dead_code)]
 #[derive(Debug)]
-struct FAT16 {
+pub struct FAT16 {
     label: SizedString<11>,
     sector_size: u16,
     cluster_sectors: u8,
@@ -144,9 +144,13 @@ impl FAT16 {
         }
     }
 
-    pub fn iter(&self) -> DirIter {
-        DirIter(self.root_start as usize * self.sector_size as usize)
-   }
+    pub fn root(&self) -> DirEntry {
+        self.at(0).unwrap()
+    }
+
+    pub fn root_addr(&self) -> usize {
+        self.root_start as usize * self.sector_size as usize
+    }
 
     fn next_cluster(&self, cluster: u16) -> Option<u16> {
         let mut buf = [0u8; 2];
@@ -162,16 +166,20 @@ impl FAT16 {
         }
     }
 
-   pub fn read_data(&self, d: &DirEntry) -> Vec<u8> {
+    fn cluster_bytes(&self) -> usize {
+        self.cluster_sectors as usize * self.sector_size as usize
+    }
+
+    pub fn read_data(&self, d: &DirEntry) -> Vec<u8> {
         let mut buf = Vec::new();
         let mut to_read = d.size as usize;
         buf.resize(to_read, 0);
         let mut idx = 0usize;
-        let cluster_bytes = self.cluster_sectors as usize * self.sector_size as usize;
+        let cluster_bytes = self.cluster_bytes();
 
-        let mut cluster = Some(d.cluster);
+        let mut cluster = d.cluster;
         while let Some(cl) = cluster {
-            IDE.read((cl-2) as usize * cluster_bytes + self.data_start, &mut buf[idx..idx + cluster_bytes.min(to_read)]);
+            IDE.read(self.cluster_addr(cl), &mut buf[idx..idx + cluster_bytes.min(to_read)]);
 
             if to_read <= cluster_bytes {
                 break;
@@ -183,53 +191,96 @@ impl FAT16 {
         }
 
         buf
-   }
-}
+    }
 
-struct DirIter(usize);
+    pub fn at(&self, index: u16) -> Option<DirEntry> {
+        if index == 0 {
+            Some(DirEntry{
+                name: SizedString::<11>::new("ROOT       ".as_bytes()),
+                attr: 0x10,
+                cluster: None,
+                size: self.root_entries as usize * DIR_ENTRY_SIZE,
+                index: 0,
+            })
+        } else {
+            let addr = self.root_addr() + (index-1) as usize * DIR_ENTRY_SIZE;
+            self.at_addr(addr)
+        }
+    }
 
-impl Iterator for DirIter {
-    type Item = DirEntry;
-
-    fn next(&mut self) -> Option<Self::Item> {
+    pub fn at_addr(&self, addr: usize) -> Option<DirEntry> {
         let mut buf = [0u8; DIR_ENTRY_SIZE];
-        IDE.read(self.0, &mut buf);
+        IDE.read(addr, &mut buf);
         if buf[0] == 0 {
             None
         } else {
-            self.0 += DIR_ENTRY_SIZE;
-            Some(DirEntry::new(&buf))
+            let idx = 1 + ((addr - self.root_addr()) / DIR_ENTRY_SIZE) as u16; // get index of dir entry struct from start of root dir 
+            Some(DirEntry::new(&buf, idx))
         }
+    }
+
+    fn cluster_addr(&self, cluster: u16) -> usize {
+        (cluster as usize - 2) * self.cluster_bytes() as usize + self.data_start
+    }
+
+    pub fn ls(&self, e: &DirEntry) -> DirIter {
+        if e.index == 0 {
+            DirIter(self.root_addr(), self)
+        } else {
+            DirIter(self.cluster_addr(e.cluster.unwrap()), self)
+        }
+    }
+}
+
+pub struct DirIter<'a>(usize, &'a FAT16);
+
+impl Iterator for DirIter<'_> {
+    type Item = DirEntry;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let item = self.1.at_addr(self.0);
+        self.0 += DIR_ENTRY_SIZE;
+        item
     }
 }
 
 #[derive(Debug)]
 pub struct DirEntry {
-    name: SizedString<11>,
+    pub name: SizedString<11>,
     attr: u8,
-    cluster: u16,
-    size: u32,
+    cluster: Option<u16>,
+    pub size: usize,
+    pub index: u16,
 }
 
 impl DirEntry {
-    pub fn new(b: &[u8; DIR_ENTRY_SIZE]) -> Self {
+    pub fn new(b: &[u8; DIR_ENTRY_SIZE], index: u16) -> Self {
         Self {
             name: SizedString::<11>::new(&b[0..11]),
             attr: b[11],
-            cluster: b[26] as u16 + ((b[27] as u16) << 8),
-            size: u32::from_le_bytes(b[28..32].try_into().unwrap()),
+            cluster: Some(b[26] as u16 + ((b[27] as u16) << 8)),
+            size: u32::from_le_bytes(b[28..32].try_into().unwrap()) as usize,
+            index,
         }
+    }
+
+    pub fn is_archive(&self) -> bool {
+        self.attr & 0x20 != 0
+    }
+
+    pub fn is_dir(&self) -> bool {
+        self.attr & 0x10 != 0
     }
 }
 
 pub fn load_main() -> Option<Vec<u8>> {
     let f = FAT16::new();
-    println!("FAT16: {:x?}", f);
-    for i in f.iter() {
+    // println!("FAT16: {:x?}", f);
+    for i in f.ls(&f.root()) {
         println!("{:?}", i);
-        if i.attr == 32 {
+        if i.is_archive() {
             let v = f.read_data(&i);
-            println!("contents {:?}", v.iter().take(20).collect::<Vec<&u8>>());
+            // println!("contents {:?}", v.iter().take(20).collect::<Vec<&u8>>());
             if &i.name.0[0..4] == "BOOT".as_bytes() {
                 return Some(v);
             }

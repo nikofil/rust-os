@@ -28,6 +28,13 @@ $(disk): $(ubin1)
 	@dd if=/dev/zero of=$(disk) bs=1000 count=100000
 	@mkfs.fat -F 16 $(disk)
 	@mcopy -o -i target/disk.img $(ubin1) ::/boot
+	@mmd -i target/disk.img /dir1
+	@mmd -i target/disk.img /dir2
+	@mmd -i target/disk.img /dir3
+	@mmd -i target/disk.img /dir1/sub1
+	@mmd -i target/disk.img /dir1/sub2
+	@sh -c "echo 'hello from nikos' | mcopy -o -i target/disk.img - ::/hi.txt"
+	@sh -c "echo 'this file nested af' | mcopy -o -i target/disk.img - ::/dir1/sub1/nested.txt"
 
 run: $(iso) $(disk)
 	@qemu-system-x86_64 -m size=8000 -serial stdio --no-reboot -cdrom $(iso) -drive file=$(disk),media=disk,format=raw,bus=0,unit=0 -boot d -display gtk,zoom-to-fit=on
@@ -54,8 +61,8 @@ target/arch/$(arch)/%.o: boot/$(arch)/%.asm
 	@nasm -felf64 $< -o $@
 
 # compile userspace programs
-$(ubin1): $(userspace_src)
-	@cargo rustc -p userspace -Z build-std=core,alloc --release -- --emit=obj -C relocation-model=static -C target-feature=+crt-static
+$(ubin1): FORCE
+	@cargo rustc -p userspace --bin boot -Z build-std=core,alloc --release -- --emit=obj -C relocation-model=static -C target-feature=+crt-static
 
 # compile rust OS
 $(rust_os): FORCE
