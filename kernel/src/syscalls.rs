@@ -1,10 +1,13 @@
-use core::arch::{asm, naked_asm};
-use crate::{fat16, print};
-use alloc::vec::Vec;
+use crate::{fat16, print, println, serial_println};
+use alloc::alloc::{alloc, dealloc};
 use alloc::format;
 use alloc::string::{String, ToString};
+use alloc::vec::Vec;
+use core::alloc::Layout;
+use core::arch::{asm, naked_asm};
 use lazy_static::lazy_static;
 use spin::Mutex;
+use x86_64::VirtAddr;
 
 // register for address of syscall handler
 const MSR_STAR: usize = 0xc0000081;
@@ -36,7 +39,7 @@ pub unsafe fn init_syscalls() {
 
 #[inline(never)]
 fn sys_print(str: u64, strlen: u64, i1: u64, i2: u64) -> u64 {
-    let s = unsafe{core::str::from_raw_parts(str as *const u8, strlen as usize)};
+    let s = unsafe { core::str::from_raw_parts(str as *const u8, strlen as usize) };
     if i1 != 0 && i2 != 0 {
         print!("{} {} {}", s, i1, i2);
     } else if i1 != 0 {
@@ -53,7 +56,7 @@ fn sys_getline(str: u64, strlen: u64) -> u64 {
         if let Some(vv) = v.take() {
             let strptr = str as *mut u8;
             let cplen = vv.len().min(strlen as usize);
-            unsafe {strptr.copy_from(vv.as_ptr() as *mut u8, cplen)};
+            unsafe { strptr.copy_from(vv.as_ptr() as *mut u8, cplen) };
             return cplen as u64;
         }
     }
@@ -74,12 +77,12 @@ fn sys_read(inode: u64, out: u64, outlen: u64) -> u64 {
             });
 
             let cplen = outlen.min(dir_contents.len() as u64);
-            unsafe {outptr.copy_from(dir_contents.as_ptr() as *mut u8, cplen as usize)}; // write the dir contents to the out buffer
+            unsafe { outptr.copy_from(dir_contents.as_ptr() as *mut u8, cplen as usize) }; // write the dir contents to the out buffer
             cplen
         } else {
             let data = f.read_data(&de);
             let cplen = outlen.min(data.len() as u64);
-            unsafe {outptr.copy_from(data.as_ptr() as *mut u8, cplen as usize)}; // write the data to the out buffer
+            unsafe { outptr.copy_from(data.as_ptr() as *mut u8, cplen as usize) }; // write the data to the out buffer
             cplen
         }
     } else {
@@ -91,7 +94,6 @@ fn sys_read(inode: u64, out: u64, outlen: u64) -> u64 {
 fn sys_unhandled() -> u64 {
     panic!("bad syscall number!");
 }
-
 
 // save the registers, handle the syscall and return to usermode
 #[naked]
@@ -126,23 +128,44 @@ extern "C" fn handle_syscall_wrapper() {
 }
 
 // allocate a temp stack and call the syscall handler
-unsafe extern "sysv64" fn syscall_alloc_stack(arg0: u64, arg1: u64, arg2: u64, arg3: u64, syscall: u64) -> u64 {
-    let syscall_stack: Vec<u8> = Vec::with_capacity(0x10000);
-    let stack_ptr = syscall_stack.as_ptr();
-    let retval = handle_syscall_with_temp_stack(arg0, arg1, arg2, arg3, syscall, stack_ptr);
-    drop(syscall_stack); // we can now drop the syscall temp stack
+unsafe extern "sysv64" fn syscall_alloc_stack(
+    arg0: u64,
+    arg1: u64,
+    arg2: u64,
+    arg3: u64,
+    syscall: u64,
+) -> u64 {
+    const TEMP_STACK_SIZE: usize = 0x10000;
+    let layout = Layout::from_size_align(TEMP_STACK_SIZE, 16).unwrap();
+    let stack_ptr = alloc(layout);
+    let retval = handle_syscall_with_temp_stack(
+        arg0,
+        arg1,
+        arg2,
+        arg3,
+        syscall,
+        stack_ptr.add(TEMP_STACK_SIZE),
+    );
+    dealloc(stack_ptr, layout); // we can now drop the syscall temp stack
     return retval;
 }
 
 #[inline(never)]
-extern "sysv64" fn handle_syscall_with_temp_stack(arg0: u64, arg1: u64, arg2: u64, arg3: u64, syscall: u64, temp_stack: *const u8) -> u64 {
+extern "sysv64" fn handle_syscall_with_temp_stack(
+    arg0: u64,
+    arg1: u64,
+    arg2: u64,
+    arg3: u64,
+    syscall: u64,
+    temp_stack_base_plus_stack_size: *const u8,
+) -> u64 {
     let old_stack: *const u8;
     unsafe {
         asm!("\
         mov {old_stack}, rsp
         mov rsp, {temp_stack} // move our stack to the newly allocated one
         sti // enable interrupts",
-        temp_stack = in(reg) temp_stack, old_stack = out(reg) old_stack);
+        temp_stack = in(reg) temp_stack_base_plus_stack_size, old_stack = out(reg) old_stack);
     }
     let retval: u64 = match syscall {
         0x1337 => sys_print(arg0, arg1, arg2, arg3),
